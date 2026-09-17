@@ -155,12 +155,23 @@ def view_dashboard(workflow_id: str):
     """Serve the generated dashboard HTML directly."""
     try:
         html = workspace_tools.read_file(workflow_id, "index.html")
+        base_tag = f'<base href="/workflows/{workflow_id}/artifact/" />'
+        if "<base" not in html and "<head>" in html:
+            html = html.replace("<head>", f"<head>\n  {base_tag}")
         return HTMLResponse(content=html, status_code=200)
     except FileNotFoundError:
         raise HTTPException(
             status_code=404,
             detail="Dashboard not yet generated for this workflow. Execution may still be running."
         )
+
+
+@app.get("/workflows/{workflow_id}/{file_name}")
+def serve_dashboard_file(workflow_id: str, file_name: str):
+    """Serve direct relative files requested by the dashboard."""
+    if file_name in ("styles.css", "app.js", "data.json", "index.html"):
+        return serve_artifact(workflow_id, file_name)
+    raise HTTPException(status_code=404, detail=f"File '{file_name}' not found")
 
 
 @app.get("/workflows/{workflow_id}/artifact/{file_path:path}")

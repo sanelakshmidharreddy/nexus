@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { ShieldCheck, Check, ExternalLink, BarChart3, MapPin, Eye, X, FileText, Sparkles, Layers, Activity, AlertTriangle } from 'lucide-react';
 import { API_BASE } from '../config';
 
@@ -6,34 +6,9 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
   const [showDashboardModal, setShowDashboardModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  // 3D Card Tilt State
-  const cardRef = useRef(null);
-  const [rotateX, setRotateX] = useState(0);
-  const [rotateY, setRotateY] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const handleMouseMove = (e) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-
-    const rotX = ((y - centerY) / centerY) * -5; // max 5deg tilt
-    const rotY = ((x - centerX) / centerX) * 5;
-
-    setRotateX(rotX);
-    setRotateY(rotY);
-  };
-
-  const handleMouseEnter = () => setIsHovered(true);
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    setRotateX(0);
-    setRotateY(0);
-  };
+  // Precision Data Visualization Hover States
+  const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
+  const [hoveredHotspotIndex, setHoveredHotspotIndex] = useState(null);
 
   const completedTasks = tasks.filter(t => t.status === 'success').length;
   const totalTasks = tasks.length > 0 ? tasks.length : 8;
@@ -134,24 +109,15 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
           </div>
         )}
 
-        {/* 3D Floating Interactive Deliverable Card */}
-        <div className="perspective-card-wrapper" style={{ marginBottom: '20px' }}>
+        {/* Deliverable Card with Precision Interactive Visualizations */}
+        <div style={{ marginBottom: '20px' }}>
           <div
-            ref={cardRef}
-            onMouseMove={handleMouseMove}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            className="perspective-card-inner"
             style={{
               background: '#ffffff',
               border: `1px solid ${isVerified ? '#a7f3d0' : 'var(--border-default)'}`,
               borderRadius: 'var(--radius-md)',
               padding: '20px',
-              boxShadow: isHovered
-                ? '0 20px 30px -10px rgba(15, 23, 42, 0.12), 0 10px 15px -5px rgba(15, 23, 42, 0.06)'
-                : '0 4px 12px -2px rgba(15, 23, 42, 0.06)',
-              transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(${isHovered ? '-4px' : '0px'})`,
-              cursor: 'default',
+              boxShadow: '0 4px 12px -2px rgba(15, 23, 42, 0.06)',
             }}
           >
             {/* Card Header with Floating Badges */}
@@ -241,66 +207,191 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
                 </span>
               </div>
 
-              {/* KPI Mini Grid */}
+              {/* KPI Mini Grid with Precision Hover Elevation */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-                <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TOTAL ACCIDENTS</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>14,892</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--state-success)', marginTop: '2px' }}>↓ 4.2% MoM decline</div>
-                </div>
-
-                <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>FATAL CASUALTIES</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--state-failure)', marginTop: '2px' }}>284</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Severity Index: 1.9%</div>
-                </div>
-
-                <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>HIGH-RISK HOTSPOTS</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--state-warning)', marginTop: '2px' }}>38 Clusters</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Geospatial density &gt; 3.0</div>
-                </div>
-
-                <div style={{ background: '#ffffff', padding: '12px 14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>PRIMARY FACTOR</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-primary)', marginTop: '2px' }}>Wet Surface</div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>Correlation coefficient: 0.78</div>
-                </div>
+                {[
+                  {
+                    title: 'TOTAL ACCIDENTS',
+                    value: '14,892',
+                    sub: '↓ 4.2% MoM decline',
+                    subColor: 'var(--state-success)',
+                  },
+                  {
+                    title: 'FATAL CASUALTIES',
+                    value: '284',
+                    sub: 'Severity Index: 1.9%',
+                    subColor: 'var(--text-muted)',
+                    valColor: 'var(--state-failure)',
+                  },
+                  {
+                    title: 'CRITICAL HOTSPOTS',
+                    value: '5',
+                    sub: '38 Clusters identified',
+                    subColor: 'var(--text-muted)',
+                    valColor: 'var(--state-warning)',
+                  },
+                  {
+                    title: 'RISK INDEX',
+                    value: '0.78',
+                    sub: 'Primary Factor: Wet Surface',
+                    subColor: 'var(--text-muted)',
+                  },
+                ].map((kpi, idx) => (
+                  <div
+                    key={kpi.title}
+                    tabIndex={0}
+                    className="viz-kpi-card"
+                    style={{
+                      background: '#ffffff',
+                      padding: '12px 14px',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--border-subtle)',
+                      boxShadow: 'var(--shadow-xs)',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{kpi.title}</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: '800', color: kpi.valColor || 'var(--text-primary)', marginTop: '2px' }}>{kpi.value}</div>
+                    <div style={{ fontSize: '0.68rem', color: kpi.subColor, marginTop: '2px' }}>{kpi.sub}</div>
+                  </div>
+                ))}
               </div>
 
               {/* Chart & Hotspot Preview Rows */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
-                {/* Temporal Trends */}
-                <div style={{ background: '#ffffff', padding: '14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <BarChart3 size={14} style={{ color: 'var(--text-muted)' }} />
-                    <span>Monthly Collision Frequency & Severity</span>
+                {/* Temporal Trends with Precision Single-Bar Hover */}
+                <div style={{ background: '#ffffff', padding: '14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)', position: 'relative' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <BarChart3 size={14} style={{ color: 'var(--text-muted)' }} />
+                      <span>Monthly Collision Frequency & Severity</span>
+                    </div>
+                    <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                      HOVER BAR FOR DETAILS
+                    </span>
                   </div>
 
-                  <div style={{ height: '110px', display: 'flex', alignItems: 'flex-end', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div style={{ height: '120px', display: 'flex', alignItems: 'flex-end', gap: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--border-subtle)', position: 'relative' }}>
                     {[
-                      { month: "Jan", total: 60, severe: 14 },
-                      { month: "Feb", total: 45, severe: 10 },
-                      { month: "Mar", total: 75, severe: 18 },
-                      { month: "Apr", total: 55, severe: 12 },
-                      { month: "May", total: 90, severe: 24 },
-                      { month: "Jun", total: 70, severe: 16 },
-                      { month: "Jul", total: 100, severe: 28 },
-                      { month: "Aug", total: 85, severe: 20 },
-                    ].map((item, i) => (
-                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', height: `${item.total}%` }}>
-                          <div style={{ width: '80%', height: `${item.severe * 1.5}px`, background: 'var(--state-failure)', borderRadius: '2px 2px 0 0' }} />
-                          <div style={{ width: '80%', flex: 1, background: '#0f172a', borderRadius: '0 0 2px 2px' }} />
+                      { month: "Jan", accidents: "1,420", severe: 28, heightPct: 58, change: "↑ 2.1%" },
+                      { month: "Feb", accidents: "1,180", severe: 21, heightPct: 46, change: "↓ 16.9%" },
+                      { month: "Mar", accidents: "1,840", severe: 36, heightPct: 74, change: "↑ 55.9%" },
+                      { month: "Apr", accidents: "1,490", severe: 26, heightPct: 56, change: "↓ 19.0%" },
+                      { month: "May", accidents: "2,184", severe: 47, heightPct: 88, change: "↓ 8.3%" },
+                      { month: "Jun", accidents: "1,760", severe: 34, heightPct: 70, change: "↓ 19.4%" },
+                      { month: "Jul", accidents: "2,420", severe: 58, heightPct: 100, change: "↑ 37.5%" },
+                      { month: "Aug", accidents: "2,050", severe: 44, heightPct: 82, change: "↓ 15.3%" },
+                    ].map((item, i) => {
+                      const isBarHovered = hoveredBarIndex === i;
+                      return (
+                        <div
+                          key={item.month}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            height: '100%',
+                            justifyContent: 'flex-end',
+                            position: 'relative',
+                          }}
+                        >
+                          {/* Floating Precision Tooltip for Active Bar */}
+                          {isBarHovered && (
+                            <div
+                              className="viz-tooltip-box"
+                              role="tooltip"
+                              style={{
+                                position: 'absolute',
+                                bottom: `calc(${item.heightPct}% + 10px)`,
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                background: '#0f172a',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.18)',
+                                borderRadius: '6px',
+                                padding: '7px 9px',
+                                fontSize: '0.68rem',
+                                boxShadow: '0 8px 24px -2px rgba(15, 23, 42, 0.45), 0 2px 6px rgba(0,0,0,0.2)',
+                                zIndex: 60,
+                                pointerEvents: 'none',
+                                minWidth: '110px',
+                              }}
+                            >
+                              <div style={{ fontWeight: '800', fontSize: '0.72rem', borderBottom: '1px solid rgba(255, 255, 255, 0.15)', paddingBottom: '3px', marginBottom: '4px', letterSpacing: '0.04em', color: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>{item.month.toUpperCase()}</span>
+                                <span style={{ color: item.change.startsWith('↓') ? '#34d399' : '#f87171', fontSize: '0.64rem' }}>{item.change}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px', color: '#94a3b8' }}>
+                                <span>Accidents</span>
+                                <strong style={{ color: '#ffffff' }}>{item.accidents}</strong>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                                <span>Fatal/Severe</span>
+                                <strong style={{ color: '#f87171' }}>{item.severe}</strong>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Individual Bar Element */}
+                          <div
+                            tabIndex={0}
+                            role="graphics-symbol"
+                            aria-label={`${item.month}: ${item.accidents} accidents, ${item.severe} fatal or severe`}
+                            onMouseEnter={() => setHoveredBarIndex(i)}
+                            onMouseLeave={() => setHoveredBarIndex(null)}
+                            onFocus={() => setHoveredBarIndex(i)}
+                            onBlur={() => setHoveredBarIndex(null)}
+                            onClick={() => setHoveredBarIndex(isBarHovered ? null : i)}
+                            className={`viz-chart-bar ${isBarHovered ? 'active' : ''}`}
+                            style={{
+                              width: '74%',
+                              height: `${item.heightPct}%`,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              borderRadius: '4px 4px 0 0',
+                              overflow: 'hidden',
+                              transform: isBarHovered ? 'translateY(-5px) scale(1.04)' : 'translateY(0) scale(1)',
+                              boxShadow: isBarHovered ? '0 8px 18px -2px rgba(220, 38, 38, 0.45)' : 'none',
+                              filter: isBarHovered ? 'brightness(1.08)' : 'none',
+                              transition: 'transform 220ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 220ms ease, filter 220ms ease',
+                              transformOrigin: 'bottom center',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {/* Fatal/Severe Red Accent Top Segment */}
+                            <div style={{
+                              width: '100%',
+                              height: `${Math.max(14, item.severe * 1.1)}%`,
+                              background: '#dc2626',
+                            }} />
+                            {/* Moderate Dark Slate Lower Segment */}
+                            <div style={{
+                              width: '100%',
+                              flex: 1,
+                              background: isBarHovered ? '#1e293b' : '#0f172a',
+                              transition: 'background 200ms ease',
+                            }} />
+                          </div>
+
+                          {/* Month Label with subtle emphasis on hover */}
+                          <span style={{
+                            fontSize: '0.65rem',
+                            marginTop: '6px',
+                            color: isBarHovered ? 'var(--text-primary)' : 'var(--text-muted)',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: isBarHovered ? '800' : '500',
+                            transition: 'color 180ms ease, font-weight 180ms ease',
+                          }}>
+                            {item.month}
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{item.month}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div style={{ display: 'flex', gap: '14px', marginTop: '8px', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <div style={{ width: '7px', height: '7px', background: '#0f172a', borderRadius: '1px' }} /> Moderate
+                      <div style={{ width: '7px', height: '7px', background: '#0f172a', borderRadius: '1px' }} /> Moderate Collisions
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <div style={{ width: '7px', height: '7px', background: 'var(--state-failure)', borderRadius: '1px' }} /> Fatal / Severe
@@ -308,7 +399,7 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
                   </div>
                 </div>
 
-                {/* Hotspots List */}
+                {/* Hotspots List with Micro-Elevations */}
                 <div style={{ background: '#ffffff', padding: '14px', borderRadius: 'var(--radius-xs)', border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <MapPin size={14} style={{ color: 'var(--text-muted)' }} />
@@ -321,30 +412,55 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
                       { location: "Downtown Broadway & 5th Ave", collisions: "98 incidents", risk: "HIGH" },
                       { location: "East River Bridge Crossing", collisions: "87 incidents", risk: "HIGH" },
                       { location: "Industrial Parkway Corridor", collisions: "64 incidents", risk: "MODERATE" },
-                    ].map((spot, idx) => (
-                      <div key={idx} style={{
-                        padding: '6px 9px',
-                        background: 'var(--bg-surface-secondary)',
-                        borderRadius: 'var(--radius-xs)',
-                        border: '1px solid var(--border-subtle)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}>
-                        <div>
-                          <div style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                            {spot.location}
+                    ].map((spot, idx) => {
+                      const isHotspotHovered = hoveredHotspotIndex === idx;
+                      return (
+                        <div
+                          key={idx}
+                          tabIndex={0}
+                          onMouseEnter={() => setHoveredHotspotIndex(idx)}
+                          onMouseLeave={() => setHoveredHotspotIndex(null)}
+                          onFocus={() => setHoveredHotspotIndex(idx)}
+                          onBlur={() => setHoveredHotspotIndex(null)}
+                          className="viz-hotspot-row"
+                          style={{
+                            padding: '7px 10px',
+                            background: isHotspotHovered ? '#ffffff' : 'var(--bg-surface-secondary)',
+                            borderRadius: 'var(--radius-xs)',
+                            border: `1px solid ${isHotspotHovered ? '#cbd5e1' : 'var(--border-subtle)'}`,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <div>
+                            <div style={{
+                              fontSize: '0.78rem',
+                              fontWeight: isHotspotHovered ? '700' : '600',
+                              color: isHotspotHovered ? 'var(--color-primary, #2563eb)' : 'var(--text-primary)',
+                              transition: 'color 180ms ease',
+                            }}>
+                              {spot.location}
+                            </div>
+                            <div style={{
+                              fontSize: '0.68rem',
+                              color: isHotspotHovered ? 'var(--text-primary)' : 'var(--text-muted)',
+                              fontWeight: isHotspotHovered ? '600' : '400',
+                            }}>
+                              {spot.collisions}
+                            </div>
                           </div>
-                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                            {spot.collisions}
-                          </div>
-                        </div>
 
-                        <span className={`badge badge-${spot.risk === 'CRITICAL' ? 'failed' : spot.risk === 'HIGH' ? 'retrying' : 'pending'}`} style={{ fontSize: '0.62rem' }}>
-                          {spot.risk}
-                        </span>
-                      </div>
-                    ))}
+                          <span className={`badge badge-${spot.risk === 'CRITICAL' ? 'failed' : spot.risk === 'HIGH' ? 'retrying' : 'pending'}`} style={{
+                            fontSize: '0.62rem',
+                            boxShadow: isHotspotHovered ? '0 2px 6px rgba(0,0,0,0.1)' : 'none',
+                            transition: 'box-shadow 180ms ease',
+                          }}>
+                            {spot.risk}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
