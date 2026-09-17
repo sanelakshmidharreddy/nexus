@@ -131,6 +131,7 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
 
     return {
         "verified": verified,
+        "status": "passed" if verified else "failed",
         "score": score,
         "total_checks": total_checks,
         "passed_checks": passed_count,

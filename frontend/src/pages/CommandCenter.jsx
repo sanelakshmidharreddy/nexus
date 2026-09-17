@@ -535,6 +535,11 @@ export default function CommandCenter() {
               requirements={requirements}
               evaluation={evaluation}
               isVerified={isVerified}
+              workflow={activeWorkflow}
+              tasks={tasks}
+              events={events}
+              artifacts={artifacts}
+              onNavigateToTab={setActiveTab}
             />
 
             {/* 3D FLOATING PRODUCT CARD & FINAL DELIVERABLE */}
