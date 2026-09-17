@@ -11,11 +11,17 @@ import FinalDeliverable from '../components/FinalDeliverable';
 import OrchestrationNetworkVisual from '../components/OrchestrationNetworkVisual';
 import ExecutionProgressBar from '../components/ExecutionProgressBar';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
-import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw } from 'lucide-react';
+import MissionLaunchExperience from '../components/MissionLaunchExperience';
+import PersistentExecutionHeader from '../components/PersistentExecutionHeader';
+import AgentDetailDrawer from '../components/AgentDetailDrawer';
+import CompactRecoveryCard from '../components/CompactRecoveryCard';
+import RecoveryCenterView from '../components/RecoveryCenterView';
+import ExecutionView from '../components/ExecutionView';
+import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw, ShieldAlert } from 'lucide-react';
 import { API_BASE } from '../config';
 
 export default function CommandCenter() {
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'workflows' | 'agents' | 'execution' | 'projects'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'workflows' | 'agents' | 'execution' | 'recovery' | 'projects'
 
   const [isOnline, setIsOnline] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('ONLINE'); // 'ONLINE' | 'DEGRADED' | 'OFFLINE'
@@ -30,6 +36,12 @@ export default function CommandCenter() {
   const [artifacts, setArtifacts] = useState([]);
   const [evaluation, setEvaluation] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
+
+  // New High-End UX interactive state
+  const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
+  const [launchGoalText, setLaunchGoalText] = useState('');
+  const [isLaunchBenchmark, setIsLaunchBenchmark] = useState(false);
+  const [selectedAgentForDrawer, setSelectedAgentForDrawer] = useState(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -170,7 +182,7 @@ export default function CommandCenter() {
       } catch {
         // network blip
       }
-    }, 1000);
+    }, 750);
 
     return () => clearInterval(pollTimer);
   }, [activeWorkflow?.workflow_id, isExecuting]);
@@ -179,6 +191,9 @@ export default function CommandCenter() {
   const handleStartWorkflow = async (goalText, isDemo = false) => {
     setIsSubmitting(true);
     setError(null);
+    setLaunchGoalText(goalText);
+    setIsLaunchBenchmark(isDemo);
+    setIsLaunchModalOpen(true);
     lastEventCountRef.current = 0;
     addLog('info', `Mission directive dispatched: "${goalText}"`);
     addLog('info', `Topological planning initiated (Mode: ${isDemo ? 'RoadSafe Benchmark' : 'LLM Planner'})...`);
@@ -222,6 +237,7 @@ export default function CommandCenter() {
       const msg = err.message || 'Failed to dispatch workflow to backend';
       setError(msg);
       addLog('error', `Workflow dispatch failed: ${msg}`);
+      setIsLaunchModalOpen(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -323,6 +339,24 @@ export default function CommandCenter() {
           </button>
 
           <button
+            onClick={() => setActiveTab('recovery')}
+            className={`nav-tab ${activeTab === 'recovery' ? 'active' : ''}`}
+          >
+            <ShieldAlert size={14} />
+            <span>Recovery</span>
+            <span style={{
+              fontSize: '0.68rem',
+              padding: '1px 5px',
+              borderRadius: '999px',
+              background: events.some(e => e.event_type === 'QA_PASSED') ? 'var(--state-success-bg)' : 'var(--bg-surface-secondary)',
+              color: events.some(e => e.event_type === 'QA_PASSED') ? 'var(--state-success-text)' : 'var(--text-muted)',
+              fontWeight: '700',
+            }}>
+              {events.some(e => e.event_type === 'QA_PASSED') ? '✓ 1' : '0'}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('projects')}
             className={`nav-tab ${activeTab === 'projects' ? 'active' : ''}`}
           >
@@ -355,6 +389,16 @@ export default function CommandCenter() {
           )}
         </div>
       </div>
+
+      {/* Persistent Execution Header (Section 6) */}
+      <PersistentExecutionHeader
+        workflow={activeWorkflow}
+        tasks={tasks}
+        events={events}
+        isExecuting={isExecuting}
+        isVerified={isVerified}
+        onNavigateToExecution={() => setActiveTab('execution')}
+      />
 
       {/* Main Container */}
       <main style={{
@@ -412,13 +456,17 @@ export default function CommandCenter() {
               events={events}
             />
 
-            {/* SPECIALIST AGENT SWARM */}
-            <AgentPanel tasks={tasks} />
+            {/* SPECIALIST AGENT SWARM (Interactive cards with micro-depth) */}
+            <AgentPanel
+              tasks={tasks}
+              onSelectAgent={setSelectedAgentForDrawer}
+              selectedAgentId={selectedAgentForDrawer}
+            />
 
-            {/* ADAPTIVE ORCHESTRATION & SELF-HEALING RECOVERY LOOP */}
-            <FailureRecoveryFlow
+            {/* ADAPTIVE ORCHESTRATION COMPACT RECOVERY SUMMARY CARD (Sections 17 & 25) */}
+            <CompactRecoveryCard
               events={events}
-              onTriggerRecoveryLog={handleTriggerRecoveryLog}
+              onViewRecoveryDetails={() => setActiveTab('recovery')}
             />
 
             {/* CHRONOLOGICAL AUDIT TIMELINE & GENERATED ARTIFACTS */}
@@ -539,10 +587,14 @@ export default function CommandCenter() {
           </div>
         )}
 
-        {/* TAB 3: AGENTS FOCUS */}
+        {/* TAB 3: AGENTS FOCUS (Interactive swarm + Inspector) */}
         {activeTab === 'agents' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <AgentPanel tasks={tasks} />
+            <AgentPanel
+              tasks={tasks}
+              onSelectAgent={setSelectedAgentForDrawer}
+              selectedAgentId={selectedAgentForDrawer}
+            />
             <WorkflowGraph
               tasks={tasks}
               selectedTaskId={selectedTaskId}
@@ -552,18 +604,29 @@ export default function CommandCenter() {
           </div>
         )}
 
-        {/* TAB 4: EXECUTION & ADAPTIVE RECOVERY */}
+        {/* TAB 4: OPERATIONAL EXECUTION VIEW (Sections 27 & 28) */}
         {activeTab === 'execution' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <FailureRecoveryFlow
+            <ExecutionView
+              workflow={activeWorkflow}
+              tasks={tasks}
               events={events}
-              onTriggerRecoveryLog={handleTriggerRecoveryLog}
+              logs={logs}
             />
             <ExecutionLog logs={logs} />
           </div>
         )}
 
-        {/* TAB 5: PROJECTS & DELIVERABLE */}
+        {/* TAB 5: RECOVERY CENTER VIEW (Sections 18 - 24) */}
+        {activeTab === 'recovery' && (
+          <RecoveryCenterView
+            workflow={activeWorkflow}
+            events={events}
+            tasks={tasks}
+          />
+        )}
+
+        {/* TAB 6: PROJECTS & DELIVERABLE */}
         {activeTab === 'projects' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <ProjectFilesView
@@ -581,6 +644,28 @@ export default function CommandCenter() {
           </div>
         )}
       </main>
+
+      {/* Specialist Agent Intelligence Detail Drawer (Sections 11, 12, 13) */}
+      <AgentDetailDrawer
+        agentId={selectedAgentForDrawer}
+        isOpen={Boolean(selectedAgentForDrawer)}
+        onClose={() => setSelectedAgentForDrawer(null)}
+        tasks={tasks}
+        requirements={requirements}
+        events={events}
+        artifacts={artifacts}
+        evaluation={evaluation}
+        workflowId={activeWorkflow?.workflow_id}
+      />
+
+      {/* Reusable Mission Launch Takeover Experience (Sections 3, 4, 5) */}
+      <MissionLaunchExperience
+        isOpen={isLaunchModalOpen}
+        onComplete={() => setIsLaunchModalOpen(false)}
+        goal={launchGoalText}
+        isBenchmark={isLaunchBenchmark}
+        workflow={activeWorkflow}
+      />
 
       {/* Minimal Clean Footer */}
       <footer style={{

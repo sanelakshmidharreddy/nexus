@@ -446,3 +446,32 @@ code, pre, .font-mono {
   animation: progress-shimmer 2.2s infinite linear;
 }
 
+/* Animations for Drawers and Takeover Modals */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.interactive-agent-card:active {
+  transform: scale(0.99) !important;
+}
+
+

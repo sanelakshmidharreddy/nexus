@@ -208,6 +208,40 @@ export default function Header({ isOnline, connectionStatus = 'ONLINE', modelNam
           </span>
         </div>
 
+        {/* Workflow Lifecycle Status Chip (Section 34) */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          borderRadius: 'var(--radius-xs)',
+          background: isVerified
+            ? 'var(--state-success-bg)'
+            : isExecuting
+            ? 'var(--state-running-bg)'
+            : 'var(--bg-surface-secondary)',
+          border: `1px solid ${
+            isVerified
+              ? 'var(--state-success-border)'
+              : isExecuting
+              ? 'var(--state-running-border)'
+              : 'var(--border-subtle)'
+          }`,
+          fontSize: '0.72rem',
+          fontFamily: 'var(--font-mono)',
+          fontWeight: '700',
+          color: isVerified
+            ? 'var(--state-success-text)'
+            : isExecuting
+            ? 'var(--state-running-text)'
+            : 'var(--text-muted)',
+        }}>
+          <span className={`status-dot ${isVerified ? 'status-dot-success' : isExecuting ? 'status-dot-running' : 'status-dot-pending'}`} />
+          <span>
+            {isVerified ? '✓ VERIFIED' : isExecuting ? '● ORCHESTRATING' : 'STANDBY'}
+          </span>
+        </div>
+
         {/* FastAPI Docs Link */}
         <a
           href={`${apiUrl}/docs`}

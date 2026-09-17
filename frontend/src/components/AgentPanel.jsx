@@ -1,7 +1,7 @@
 import React from 'react';
 import { Users, Search, Database, Layout, Code2, CheckSquare, Award, Check, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
 
-export default function AgentPanel({ tasks = [] }) {
+export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedAgentId = null }) {
   const agents = [
     {
       id: 'research',
@@ -156,27 +156,42 @@ export default function AgentPanel({ tasks = [] }) {
             const Icon = agent.icon;
             const state = getAgentState(agent.id);
 
-            let cardClass = "";
-            if (state.isRunning) cardClass = "agent-card-active";
-            else if (state.isRetrying) cardClass = "agent-card-recovering";
-            else if (state.isFailed) cardClass = "agent-card-failed";
+            const isSelected = selectedAgentId === agent.id;
+            let cardClass = "interactive-agent-card";
+            if (state.isRunning) cardClass += " agent-card-active";
+            else if (state.isRetrying) cardClass += " agent-card-recovering";
+            else if (state.isFailed) cardClass += " agent-card-failed";
 
             return (
               <div
                 key={agent.id}
                 className={cardClass}
+                onClick={() => onSelectAgent && onSelectAgent(agent.id)}
                 style={{
-                  background: '#ffffff',
-                  border: '1px solid var(--border-subtle)',
+                  background: isSelected ? 'var(--bg-surface-secondary)' : '#ffffff',
+                  border: `1px solid ${isSelected ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
                   borderRadius: 'var(--radius-sm)',
                   padding: '14px',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   gap: '10px',
-                  boxShadow: 'var(--shadow-xs)',
-                  transition: 'all 0.2s ease',
+                  boxShadow: isSelected ? 'var(--shadow-md)' : 'var(--shadow-xs)',
+                  cursor: 'pointer',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+                  position: 'relative',
                 }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                  e.currentTarget.style.borderColor = isSelected ? 'var(--text-primary)' : 'var(--border-focus)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = isSelected ? 'var(--shadow-md)' : 'var(--shadow-xs)';
+                  e.currentTarget.style.borderColor = isSelected ? 'var(--text-primary)' : 'var(--border-subtle)';
+                }}
+                title="Click to view detailed specialist intelligence and metrics"
               >
                 {/* Top Row: Icon + Name & Status Badge */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
@@ -241,6 +256,20 @@ export default function AgentPanel({ tasks = [] }) {
                     }}>
                       {state.lastActivity}
                     </span>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: '4px',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.67rem',
+                    fontFamily: 'var(--font-mono)',
+                    marginTop: '2px',
+                  }}>
+                    <span>Inspect Agent</span>
+                    <span>→</span>
                   </div>
                 </div>
               </div>
