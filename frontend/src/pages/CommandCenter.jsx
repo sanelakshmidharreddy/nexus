@@ -17,11 +17,12 @@ import AgentDetailDrawer from '../components/AgentDetailDrawer';
 import CompactRecoveryCard from '../components/CompactRecoveryCard';
 import RecoveryCenterView from '../components/RecoveryCenterView';
 import ExecutionView from '../components/ExecutionView';
+import FullAgentView from '../components/FullAgentView';
 import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw, ShieldAlert } from 'lucide-react';
 import { API_BASE } from '../config';
 
 export default function CommandCenter() {
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'workflows' | 'agents' | 'execution' | 'recovery' | 'projects'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'workflows' | 'agents' | 'execution' | 'recovery' | 'projects' | 'agent_full'
 
   const [isOnline, setIsOnline] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('ONLINE'); // 'ONLINE' | 'DEGRADED' | 'OFFLINE'
@@ -42,6 +43,7 @@ export default function CommandCenter() {
   const [launchGoalText, setLaunchGoalText] = useState('');
   const [isLaunchBenchmark, setIsLaunchBenchmark] = useState(false);
   const [selectedAgentForDrawer, setSelectedAgentForDrawer] = useState(null);
+  const [fullViewAgentId, setFullViewAgentId] = useState('research');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -127,6 +129,25 @@ export default function CommandCenter() {
     checkHealthAndWorkflows();
     const interval = setInterval(checkHealthAndWorkflows, 8000);
     return () => clearInterval(interval);
+  }, []);
+
+  // URL routing for /agents/<agentId>/<workflowId> (Section 21 & 22)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/agents/')) {
+        const parts = path.split('/').filter(Boolean);
+        // parts = ['agents', agentId, workflowId]
+        if (parts[1]) {
+          setFullViewAgentId(parts[1].toLowerCase());
+          setActiveTab('agent_full');
+        }
+      }
+    };
+
+    handleLocationChange();
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
   // Real-time polling when active workflow is running
@@ -252,6 +273,33 @@ export default function CommandCenter() {
   const handleTriggerRecoveryLog = (step, msg) => {
     addLog(step === 1 ? 'error' : step === 2 || step === 4 ? 'warn' : 'success', `[ADAPTIVE RECOVERY] ${msg}`);
   };
+
+  if (activeTab === 'agent_full') {
+    return (
+      <FullAgentView
+        agentId={fullViewAgentId}
+        onBack={() => {
+          setActiveTab('overview');
+          if (window.history && window.history.pushState) {
+            window.history.pushState(null, '', '/');
+          }
+        }}
+        onSelectAgent={(id) => {
+          setFullViewAgentId(id);
+          if (window.history && window.history.pushState) {
+            window.history.pushState(null, '', `/agents/${id}/${activeWorkflow?.workflow_id || 'active'}`);
+          }
+        }}
+        tasks={tasks}
+        requirements={requirements}
+        events={events}
+        artifacts={artifacts}
+        evaluation={evaluation}
+        workflow={activeWorkflow}
+        workflowId={activeWorkflow?.workflow_id}
+      />
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
@@ -650,6 +698,14 @@ export default function CommandCenter() {
         agentId={selectedAgentForDrawer}
         isOpen={Boolean(selectedAgentForDrawer)}
         onClose={() => setSelectedAgentForDrawer(null)}
+        onOpenFullView={(agentId) => {
+          setFullViewAgentId(agentId);
+          setSelectedAgentForDrawer(null);
+          setActiveTab('agent_full');
+          if (window.history && window.history.pushState) {
+            window.history.pushState(null, '', `/agents/${agentId}/${activeWorkflow?.workflow_id || 'active'}`);
+          }
+        }}
         tasks={tasks}
         requirements={requirements}
         events={events}

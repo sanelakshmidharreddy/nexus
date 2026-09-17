@@ -165,8 +165,17 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
             return (
               <div
                 key={agent.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Inspect ${agent.name} - Status: ${state.status} - ${state.lastActivity}`}
                 className={cardClass}
                 onClick={() => onSelectAgent && onSelectAgent(agent.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (onSelectAgent) onSelectAgent(agent.id);
+                  }
+                }}
                 style={{
                   background: isSelected ? 'var(--bg-surface-secondary)' : '#ffffff',
                   border: `1px solid ${isSelected ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
@@ -180,9 +189,10 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
                   cursor: 'pointer',
                   transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
                   position: 'relative',
+                  outline: 'none',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.transform = 'translateY(-3px)';
                   e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                   e.currentTarget.style.borderColor = isSelected ? 'var(--text-primary)' : 'var(--border-focus)';
                 }}
@@ -191,7 +201,7 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
                   e.currentTarget.style.boxShadow = isSelected ? 'var(--shadow-md)' : 'var(--shadow-xs)';
                   e.currentTarget.style.borderColor = isSelected ? 'var(--text-primary)' : 'var(--border-subtle)';
                 }}
-                title="Click to view detailed specialist intelligence and metrics"
+                title={`Click to open ${agent.name} Workstation`}
               >
                 {/* Top Row: Icon + Name & Status Badge */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
@@ -212,8 +222,25 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
                     </div>
 
                     <div>
-                      <div style={{ fontSize: '0.86rem', fontWeight: '700', color: 'var(--text-primary)' }}>
-                        {agent.name}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.86rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                          {agent.name}
+                        </span>
+                        {isSelected && (
+                          <span style={{
+                            fontSize: '0.62rem',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: '800',
+                            color: 'var(--text-primary)',
+                            background: '#ffffff',
+                            border: '1px solid var(--text-primary)',
+                            padding: '0 4px',
+                            borderRadius: '2px',
+                            letterSpacing: '0.04em',
+                          }}>
+                            [SELECTED]
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
                         {agent.role}
