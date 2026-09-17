@@ -1,37 +1,63 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, AlertCircle, Play, CheckCircle2, ListChecks, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, AlertCircle, Sparkles, ListChecks, Play, Zap } from 'lucide-react';
 
-export default function GoalInput({ onStartWorkflow, isSubmitting, error, activeGoal, requirements, isOnline }) {
-  const defaultGoalText = "Build a RoadSafe accident analytics dashboard with interactive hotspots, casualty metrics, and Vision Zero recommendations.";
+export default function GoalInput({ onStartWorkflow, isSubmitting, error, activeGoal, requirements, isOnline, workflowStatus }) {
+  const defaultGoalText = "Build a RoadSafe-style accident analytics dashboard from this dataset.";
   const [goal, setGoal] = useState(activeGoal || defaultGoalText);
+  const [submissionStage, setSubmissionStage] = useState('IDLE'); // 'IDLE' | 'INITIALIZING' | 'UNDERSTANDING' | 'PLANNING' | 'EXECUTING'
 
   const presets = [
     {
-      title: "RoadSafe Analytics Dashboard",
-      text: "Build a RoadSafe accident analytics dashboard with interactive hotspots, casualty metrics, and Vision Zero recommendations.",
-      badge: "Hackathon Benchmark"
+      title: "RoadSafe Analytics",
+      text: "Build a RoadSafe-style accident analytics dashboard from this dataset.",
+      badge: "Benchmark"
     },
     {
-      title: "Vision Zero High-Risk Hotspots",
+      title: "Vision Zero Hotspots",
       text: "Create a Vision Zero accident hotspot analyzer with collision severity clustering and mitigation recommendations.",
       badge: "Geospatial"
     },
     {
-      title: "Casualty & Weather Correlation",
+      title: "Traffic Risk Factors",
       text: "Develop an accident causation risk-factor engine with temporal trends and weather correlation reports.",
       badge: "Analytics"
+    },
+    {
+      title: "Custom Goal",
+      text: "",
+      badge: "Freeform"
     }
   ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!goal.trim() || isSubmitting) return;
+
+    setSubmissionStage('INITIALIZING');
+    setTimeout(() => setSubmissionStage('UNDERSTANDING'), 300);
+    setTimeout(() => setSubmissionStage('PLANNING'), 700);
+    setTimeout(() => setSubmissionStage('EXECUTING'), 1200);
+
     onStartWorkflow(goal.trim(), false);
   };
 
   const handleRunDemo = () => {
     if (isSubmitting) return;
+
+    setSubmissionStage('INITIALIZING');
+    setTimeout(() => setSubmissionStage('UNDERSTANDING'), 250);
+    setTimeout(() => setSubmissionStage('PLANNING'), 550);
+    setTimeout(() => setSubmissionStage('EXECUTING'), 900);
+
     onStartWorkflow(defaultGoalText, true);
+  };
+
+  const handleSelectPreset = (p) => {
+    if (p.text) {
+      setGoal(p.text);
+    } else {
+      setGoal("");
+    }
   };
 
   const getRequirementsChecklist = () => {
@@ -57,15 +83,27 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
     return items;
   };
 
+  const getButtonText = () => {
+    if (!isSubmitting) return "START ORCHESTRATION";
+    switch (submissionStage) {
+      case 'INITIALIZING': return "INITIALIZING...";
+      case 'UNDERSTANDING': return "UNDERSTANDING...";
+      case 'PLANNING': return "PLANNING DAG...";
+      case 'EXECUTING': return "EXECUTING...";
+      default: return "ORCHESTRATING...";
+    }
+  };
+
   return (
-    <div className="panel">
+    <div className="panel" style={{ background: '#ffffff' }}>
       <div className="panel-header">
         <div className="panel-title">
-          <span>Command Center Directive</span>
+          <Zap size={15} style={{ color: 'var(--text-muted)' }} />
+          <span>Autonomous Directive & Mission Scoping</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            STEP 1 • GOAL & SPECIFICATION
+            INPUT & REQUIREMENTS SYNTHESIS
           </span>
         </div>
       </div>
@@ -74,15 +112,15 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
             <label style={{
-              fontSize: '1.05rem',
-              fontWeight: '600',
+              fontSize: '1.08rem',
+              fontWeight: '700',
               color: 'var(--text-primary)',
-              letterSpacing: '-0.01em',
+              letterSpacing: '-0.02em',
             }}>
-              What do you want NEXUS to build?
+              What should NEXUS build?
             </label>
 
-            {/* Quick Demo Launch Button */}
+            {/* Benchmark Quick Run Button */}
             <button
               type="button"
               onClick={handleRunDemo}
@@ -96,12 +134,12 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '7px',
-                boxShadow: '0 2px 4px rgba(15, 23, 42, 0.15)',
+                boxShadow: '0 2px 5px rgba(15, 23, 42, 0.16)',
               }}
-              title="Execute full autonomous RoadSafe workflow with controlled failure injection and self-healing recovery"
+              title="Launch complete autonomous demo workflow with controlled failure injection and self-healing recovery"
             >
               <Sparkles size={14} color="#f59e0b" />
-              <span>RUN LIVE DEMO WORKFLOW</span>
+              <span>RUN BENCHMARK MISSION</span>
             </button>
           </div>
 
@@ -111,14 +149,14 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
               onChange={(e) => setGoal(e.target.value)}
               disabled={isSubmitting}
               rows={3}
-              placeholder="Describe your goal in natural language..."
+              placeholder="Build a RoadSafe-style accident analytics dashboard from this dataset."
               style={{
                 width: '100%',
                 background: '#ffffff',
                 border: '1px solid var(--border-default)',
                 borderRadius: 'var(--radius-sm)',
                 color: 'var(--text-primary)',
-                fontSize: '0.92rem',
+                fontSize: '0.94rem',
                 lineHeight: '1.5',
                 padding: '12px 14px',
                 fontFamily: 'var(--font-sans)',
@@ -139,21 +177,21 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
 
           {/* Preset Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '500' }}>
-              Presets:
+            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600', fontFamily: 'var(--font-mono)' }}>
+              PRESETS:
             </span>
             {presets.map((p, idx) => (
               <button
                 key={idx}
                 type="button"
-                onClick={() => setGoal(p.text)}
+                onClick={() => handleSelectPreset(p)}
                 disabled={isSubmitting}
                 style={{
                   background: 'var(--bg-surface-secondary)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-xs)',
-                  padding: '4px 9px',
-                  fontSize: '0.75rem',
+                  padding: '4px 10px',
+                  fontSize: '0.74rem',
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
                   transition: 'all 0.15s',
@@ -170,14 +208,15 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
                   e.currentTarget.style.color = 'var(--text-secondary)';
                 }}
               >
-                <span>{p.title}</span>
+                <span style={{ fontWeight: '500' }}>{p.title}</span>
                 <span style={{
-                  fontSize: '0.65rem',
+                  fontSize: '0.64rem',
                   padding: '1px 4px',
                   borderRadius: '2px',
                   background: '#ffffff',
                   color: 'var(--text-muted)',
                   border: '1px solid var(--border-subtle)',
+                  fontFamily: 'var(--font-mono)',
                 }}>
                   {p.badge}
                 </span>
@@ -196,24 +235,24 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
             gap: '12px',
           }}>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span className="status-dot status-dot-running" />
-              <span>NEXUS extracts requirements, builds a topological DAG plan, and executes specialist agents autonomously.</span>
+              <span className={`status-dot ${isSubmitting ? 'status-dot-running' : 'status-dot-success'}`} />
+              <span>NEXUS automatically scopes requirements, builds a topological DAG plan, and dispatches specialist agents.</span>
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting || !goal.trim()}
               className="btn-primary"
-              style={{ minWidth: '140px' }}
+              style={{ minWidth: '170px' }}
             >
               {isSubmitting ? (
                 <>
                   <span className="status-dot status-dot-running" style={{ background: '#ffffff' }} />
-                  <span>Processing...</span>
+                  <span>{getButtonText()}</span>
                 </>
               ) : (
                 <>
-                  <span>Dispatch Custom Goal</span>
+                  <span>START ORCHESTRATION</span>
                   <ArrowRight size={14} />
                 </>
               )}
@@ -243,7 +282,7 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
         {/* Structured Requirements Panel */}
         {requirements && (
           <div style={{
-            marginTop: '20px',
+            marginTop: '18px',
             background: 'var(--bg-surface-secondary)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-sm)',
@@ -253,14 +292,14 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: '14px',
-              paddingBottom: '10px',
+              marginBottom: '12px',
+              paddingBottom: '8px',
               borderBottom: '1px solid var(--border-subtle)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ListChecks size={16} color="var(--state-success)" />
-                <span style={{ fontSize: '0.85rem', fontWeight: '700', letterSpacing: '0.04em', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                  UNDERSTANDING
+                <span style={{ fontSize: '0.82rem', fontWeight: '700', letterSpacing: '0.04em', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                  SYNTHESIZED INTENT & SCOPE
                 </span>
               </div>
               <span className="badge badge-success">
@@ -268,47 +307,45 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              {/* Objective */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
               <div>
-                <div style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '3px' }}>
                   Objective
                 </div>
-                <div style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                  {requirements.objective || "Build an accident analytics dashboard."}
+                <div style={{ fontSize: '0.86rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                  {requirements.objective || "Build a RoadSafe accident analytics dashboard."}
                 </div>
               </div>
 
-              {/* Expected Output */}
               <div>
-                <div style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '4px' }}>
-                  Expected Output
+                <div style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '3px' }}>
+                  Expected Deliverable
                 </div>
-                <div style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                  {requirements.expected_output || "Working analytics dashboard"}
+                <div style={{ fontSize: '0.86rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                  {requirements.expected_output || "Working analytics dashboard with interactive charts and hotspots"}
                 </div>
               </div>
             </div>
 
-            {/* Requirements Checklist */}
-            <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>
-                Requirements Checklist
+            {/* Checklist */}
+            <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
+                Target Feature Matrix
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px' }}>
                 {getRequirementsChecklist().slice(0, 6).map((req, idx) => (
                   <div key={idx} style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '0.8rem',
+                    gap: '7px',
+                    fontSize: '0.78rem',
                     color: 'var(--text-primary)',
                     background: '#ffffff',
-                    padding: '6px 10px',
+                    padding: '5px 9px',
                     borderRadius: 'var(--radius-xs)',
                     border: '1px solid var(--border-subtle)',
                   }}>
-                    <Check size={14} color="var(--state-success)" style={{ flexShrink: 0 }} />
+                    <Check size={13} color="var(--state-success)" style={{ flexShrink: 0 }} />
                     <span style={{ fontWeight: '500' }}>{req}</span>
                   </div>
                 ))}

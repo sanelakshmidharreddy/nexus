@@ -306,3 +306,95 @@ code, pre, .font-mono {
   background: var(--bg-surface-secondary);
   font-weight: 600;
 }
+
+/* ==========================================================================
+   Advanced 3D Perspective & Motion Utilities
+   ========================================================================== */
+
+.perspective-card-wrapper {
+  perspective: 1000px;
+}
+
+.perspective-card-inner {
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, border-color 0.2s ease;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perspective-card-inner {
+    transition: none !important;
+    transform: none !important;
+  }
+  .status-dot-running, .pulse-anim, .agent-card-active, .shimmer-bar {
+    animation: none !important;
+  }
+}
+
+/* Agent Swarm Active Elevations */
+.agent-card-active {
+  border-color: #2563eb !important;
+  box-shadow: 0 6px 16px -2px rgba(37, 99, 235, 0.14), 0 0 0 1px #93c5fd !important;
+  transform: translateY(-2px);
+  background: #ffffff !important;
+}
+
+.agent-card-failed {
+  border-color: #dc2626 !important;
+  box-shadow: 0 4px 14px -2px rgba(220, 38, 38, 0.15) !important;
+  background: #fffcfc !important;
+}
+
+.agent-card-recovering {
+  border-color: #d97706 !important;
+  box-shadow: 0 4px 14px -2px rgba(217, 119, 6, 0.15) !important;
+}
+
+/* Orchestration Visual Keyframes */
+@keyframes dash-pulse {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes reverse-dash-pulse {
+  to {
+    stroke-dashoffset: 24;
+  }
+}
+
+@keyframes node-pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(37, 99, 235, 0));
+  }
+  50% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.5));
+  }
+}
+
+@keyframes verified-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5), 0 4px 12px rgba(5, 150, 105, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(5, 150, 105, 0), 0 4px 16px rgba(5, 150, 105, 0.35);
+  }
+}
+
+@keyframes progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-bar {
+  background: linear-gradient(90deg, #0f172a 0%, #2563eb 50%, #0f172a 100%);
+  background-size: 200% 100%;
+  animation: progress-shimmer 2.2s infinite linear;
+}
+

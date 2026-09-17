@@ -8,7 +8,10 @@ import FailureRecoveryFlow from '../components/FailureRecoveryFlow';
 import ProjectFilesView from '../components/ProjectFilesView';
 import EvaluatorPanel from '../components/EvaluatorPanel';
 import FinalDeliverable from '../components/FinalDeliverable';
-import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
+import OrchestrationNetworkVisual from '../components/OrchestrationNetworkVisual';
+import ExecutionProgressBar from '../components/ExecutionProgressBar';
+import ArchitectureDiagram from '../components/ArchitectureDiagram';
+import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw } from 'lucide-react';
 import { API_BASE } from '../config';
 
 export default function CommandCenter() {
@@ -45,7 +48,7 @@ export default function CommandCenter() {
     }]);
   };
 
-  // Ping backend health & fetch recent workflows
+  // Health check & recent workflows fetch
   const checkHealthAndWorkflows = async () => {
     const start = Date.now();
     try {
@@ -67,16 +70,13 @@ export default function CommandCenter() {
       setLatency(null);
     }
 
-    // Fetch existing workflows list
     try {
       const wfRes = await fetch(`${API_BASE}/workflows`);
       if (wfRes.ok) {
         const wfList = await wfRes.json();
         setWorkflowsList(wfList);
-        // If no active workflow currently selected, select the latest one
         if (!activeWorkflow && wfList.length > 0) {
-          const latest = wfList[0];
-          loadWorkflowData(latest);
+          loadWorkflowData(wfList[0]);
         }
       }
     } catch {
@@ -93,7 +93,6 @@ export default function CommandCenter() {
       setSelectedTaskId(wf.tasks[0].task_id);
     }
 
-    // Fetch events and artifacts for this workflow
     try {
       const [evRes, artRes] = await Promise.all([
         fetch(`${API_BASE}/workflows/${wf.workflow_id}/events`),
@@ -112,7 +111,6 @@ export default function CommandCenter() {
     }
   };
 
-  // Initial mount health check & periodic refresh
   useEffect(() => {
     checkHealthAndWorkflows();
     const interval = setInterval(checkHealthAndWorkflows, 8000);
@@ -120,10 +118,15 @@ export default function CommandCenter() {
   }, []);
 
   // Real-time polling when active workflow is running
+  const isExecuting = Boolean(activeWorkflow && ['planned', 'running', 'in_progress'].includes(activeWorkflow.status));
+  const isVerified = Boolean(
+    activeWorkflow?.status === 'completed' ||
+    evaluation?.status === 'passed' ||
+    (tasks.length > 0 && tasks.every(t => t.status === 'success'))
+  );
+
   useEffect(() => {
-    if (!activeWorkflow) return;
-    const isRunning = ['planned', 'running', 'in_progress'].includes(activeWorkflow.status);
-    if (!isRunning) return;
+    if (!activeWorkflow || !isExecuting) return;
 
     const pollTimer = setInterval(async () => {
       try {
@@ -146,7 +149,6 @@ export default function CommandCenter() {
           const evData = await evRes.json();
           setEvents(evData);
 
-          // Stream new events into live log window
           if (evData.length > lastEventCountRef.current) {
             const newEvents = evData.slice(lastEventCountRef.current);
             newEvents.forEach(e => {
@@ -171,7 +173,7 @@ export default function CommandCenter() {
     }, 1000);
 
     return () => clearInterval(pollTimer);
-  }, [activeWorkflow?.workflow_id, activeWorkflow?.status]);
+  }, [activeWorkflow?.workflow_id, isExecuting]);
 
   // Submit Goal to Backend
   const handleStartWorkflow = async (goalText, isDemo = false) => {
@@ -208,13 +210,12 @@ export default function CommandCenter() {
         setSelectedTaskId(workflow.tasks[0].task_id);
       }
 
-      addLog('success', `Requirements verified: ${workflow.requirements?.objective || 'Objective parsed'}`);
+      addLog('success', `Requirements synthesized: ${workflow.requirements?.objective || 'Objective parsed'}`);
       addLog('success', `DAG task plan generated: ${workflow.tasks?.length || 0} tasks planned`);
       workflow.tasks?.forEach(t => {
         addLog('agent', `Task ${t.task_id} assigned to ${t.assigned_agent.toUpperCase()} agent: "${t.title}"`);
       });
 
-      // Refresh list
       checkHealthAndWorkflows();
 
     } catch (err) {
@@ -236,12 +237,6 @@ export default function CommandCenter() {
     addLog(step === 1 ? 'error' : step === 2 || step === 4 ? 'warn' : 'success', `[ADAPTIVE RECOVERY] ${msg}`);
   };
 
-  const isVerified = Boolean(
-    activeWorkflow?.status === 'completed' ||
-    evaluation?.status === 'passed' ||
-    (tasks.length > 0 && tasks.every(t => t.status === 'success'))
-  );
-
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
       {/* Top Application Header */}
@@ -251,9 +246,11 @@ export default function CommandCenter() {
         modelName={modelName}
         latency={latency}
         apiUrl={API_BASE}
+        isExecuting={isExecuting}
+        isVerified={isVerified}
       />
 
-      {/* Navigation Bar / Shell Tabs */}
+      {/* Navigation Bar / Shell Tabs with Live Counters */}
       <div style={{
         background: '#ffffff',
         borderBottom: '1px solid var(--border-subtle)',
@@ -265,8 +262,9 @@ export default function CommandCenter() {
         position: 'sticky',
         top: '57px',
         zIndex: 40,
+        flexWrap: 'wrap',
       }}>
-        <nav style={{ display: 'flex', gap: '4px', padding: '6px 0' }}>
+        <nav style={{ display: 'flex', gap: '4px', padding: '6px 0', overflowX: 'auto' }}>
           <button
             onClick={() => setActiveTab('overview')}
             className={`nav-tab ${activeTab === 'overview' ? 'active' : ''}`}
@@ -301,6 +299,16 @@ export default function CommandCenter() {
           >
             <Users size={14} />
             <span>Agents</span>
+            <span style={{
+              fontSize: '0.68rem',
+              padding: '1px 5px',
+              borderRadius: '999px',
+              background: isExecuting ? 'var(--state-running-bg)' : 'var(--bg-surface-secondary)',
+              color: isExecuting ? 'var(--state-running-text)' : 'var(--text-muted)',
+              fontWeight: '700',
+            }}>
+              6
+            </span>
           </button>
 
           <button
@@ -309,6 +317,9 @@ export default function CommandCenter() {
           >
             <Terminal size={14} />
             <span>Execution</span>
+            {isExecuting && (
+              <span className="status-dot status-dot-running" style={{ width: '6px', height: '6px' }} />
+            )}
           </button>
 
           <button
@@ -317,12 +328,24 @@ export default function CommandCenter() {
           >
             <FolderTree size={14} />
             <span>Projects</span>
+            {artifacts.length > 0 && (
+              <span style={{
+                fontSize: '0.68rem',
+                padding: '1px 5px',
+                borderRadius: '999px',
+                background: 'var(--bg-surface-secondary)',
+                color: 'var(--text-muted)',
+                fontWeight: '700',
+              }}>
+                {artifacts.length}
+              </span>
+            )}
           </button>
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           <span>WORKFLOW ID:</span>
-          <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
+          <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>
             {activeWorkflow ? activeWorkflow.workflow_id.slice(0, 12) + '...' : 'Awaiting initialization'}
           </span>
           {activeWorkflow && (
@@ -347,33 +370,58 @@ export default function CommandCenter() {
         {/* TAB 1: OVERVIEW (Full unified command center) */}
         {activeTab === 'overview' && (
           <>
-            {/* 1. Goal Input */}
-            <GoalInput
-              onStartWorkflow={handleStartWorkflow}
-              isSubmitting={isSubmitting}
-              error={error}
-              activeGoal={activeWorkflow?.original_goal}
-              requirements={requirements}
-              isOnline={isOnline}
+            {/* HERO SECTION: Goal Directive (Left) + AI Orchestration Network Visual (Right) */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+              gap: '20px',
+              alignItems: 'stretch',
+            }}>
+              <GoalInput
+                onStartWorkflow={handleStartWorkflow}
+                isSubmitting={isSubmitting}
+                error={error}
+                activeGoal={activeWorkflow?.original_goal}
+                requirements={requirements}
+                isOnline={isOnline}
+                workflowStatus={activeWorkflow?.status}
+              />
+
+              <OrchestrationNetworkVisual
+                tasks={tasks}
+                events={events}
+                isVerified={isVerified}
+                isExecuting={isExecuting}
+              />
+            </div>
+
+            {/* REAL-TIME EXECUTION PROGRESS & STAGE TELEMETRY BAR */}
+            <ExecutionProgressBar
+              workflow={activeWorkflow}
+              tasks={tasks}
+              events={events}
+              isExecuting={isExecuting}
+              isVerified={isVerified}
             />
 
-            {/* 2. Workflow Graph */}
+            {/* LIVE ORCHESTRATION GRAPH (Centerpiece) */}
             <WorkflowGraph
               tasks={tasks}
               selectedTaskId={selectedTaskId}
               onSelectTask={setSelectedTaskId}
+              events={events}
             />
 
-            {/* 3. Specialist Agent Swarm */}
+            {/* SPECIALIST AGENT SWARM */}
             <AgentPanel tasks={tasks} />
 
-            {/* 4. Adaptive Orchestration / Self-Healing Recovery Loop */}
+            {/* ADAPTIVE ORCHESTRATION & SELF-HEALING RECOVERY LOOP */}
             <FailureRecoveryFlow
               events={events}
               onTriggerRecoveryLog={handleTriggerRecoveryLog}
             />
 
-            {/* 5. Live Execution Log & File Activity */}
+            {/* CHRONOLOGICAL AUDIT TIMELINE & GENERATED ARTIFACTS */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))',
@@ -386,27 +434,31 @@ export default function CommandCenter() {
               />
             </div>
 
-            {/* 6. Evaluator Verification Panel */}
+            {/* 9-POINT VERIFICATION AUDIT */}
             <EvaluatorPanel
               requirements={requirements}
               evaluation={evaluation}
               isVerified={isVerified}
             />
 
-            {/* 7. Final Deliverable */}
+            {/* 3D FLOATING PRODUCT CARD & FINAL DELIVERABLE */}
             <FinalDeliverable
               tasks={tasks}
               isVerified={isVerified}
               workflowId={activeWorkflow?.workflow_id}
               requirements={requirements}
               evaluation={evaluation}
+              onSwitchToTab={setActiveTab}
             />
+
+            {/* HOW NEXUS WORKS ARCHITECTURE FLOW */}
+            <ArchitectureDiagram />
           </>
         )}
 
         {/* TAB 2: WORKFLOWS (Persisted Workflows History) */}
         {activeTab === 'workflows' && (
-          <div className="panel">
+          <div className="panel" style={{ background: '#ffffff' }}>
             <div className="panel-header">
               <div className="panel-title">
                 <GitFork size={15} style={{ color: 'var(--text-muted)' }} />
@@ -495,6 +547,7 @@ export default function CommandCenter() {
               tasks={tasks}
               selectedTaskId={selectedTaskId}
               onSelectTask={setSelectedTaskId}
+              events={events}
             />
           </div>
         )}
@@ -523,6 +576,7 @@ export default function CommandCenter() {
               workflowId={activeWorkflow?.workflow_id}
               requirements={requirements}
               evaluation={evaluation}
+              onSwitchToTab={setActiveTab}
             />
           </div>
         )}
@@ -543,7 +597,7 @@ export default function CommandCenter() {
         gap: '8px',
       }}>
         <div>NEXUS AI Agent Orchestrator — Autonomous Multi-Agent Command Center</div>
-        <div>FastAPI Backend: {API_BASE} | Live DAG Engine: Operational</div>
+        <div>FastAPI Backend: {API_BASE} | Autonomous DAG & Recovery: Operational</div>
       </footer>
     </div>
   );

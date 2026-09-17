@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Play, Check, AlertTriangle, ArrowRight, RefreshCw, Cpu, Activity } from 'lucide-react';
+import { ShieldAlert, Check, AlertTriangle, RefreshCw, Cpu, CheckCircle2, ArrowRight } from 'lucide-react';
 
 export default function FailureRecoveryFlow({ events = [], onTriggerRecoveryLog }) {
   const [currentStep, setCurrentStep] = useState(0);
-  const [isSimulating, setIsSimulating] = useState(false);
 
-  // Derive recovery step from real backend events
+  // Derive recovery step strictly from real backend events
   useEffect(() => {
     if (!events || events.length === 0) return;
 
@@ -90,65 +89,20 @@ export default function FailureRecoveryFlow({ events = [], onTriggerRecoveryLog 
     },
   ];
 
-  const handleRunSimulation = () => {
-    if (isSimulating) return;
-    setIsSimulating(true);
-    setCurrentStep(1);
-    if (onTriggerRecoveryLog) {
-      onTriggerRecoveryLog(1, "QA Agent detected build error: KeyError 'latitude' missing");
-    }
-
-    const delays = [
-      { step: 2, delay: 1000, msg: "NEXUS diagnosing root cause from execution stacktrace..." },
-      { step: 3, delay: 2000, msg: "Orchestrator Decision: Reassign Task T5 to Developer Agent with coordinate constraint" },
-      { step: 4, delay: 3000, msg: "Adaptive Retry: Developer Agent starting patch with coordinate validation" },
-      { step: 5, delay: 4200, msg: "Developer Agent applied patch to app.js and data.json" },
-      { step: 6, delay: 5400, msg: "QA Agent re-running build verification suite..." },
-      { step: 7, delay: 6600, msg: "Build Passed cleanly. Adaptive recovery loop complete: SUCCESS verified!" },
-    ];
-
-    delays.forEach(({ step, delay, msg }) => {
-      setTimeout(() => {
-        setCurrentStep(step);
-        if (onTriggerRecoveryLog) {
-          onTriggerRecoveryLog(step, msg);
-        }
-        if (step === 7) {
-          setIsSimulating(false);
-        }
-      }, delay);
-    });
-  };
-
   return (
-    <div className="panel">
+    <div className="panel" style={{ background: '#ffffff' }}>
       <div className="panel-header">
         <div className="panel-title">
-          <ShieldAlert size={15} style={{ color: 'var(--text-muted)' }} />
-          <span>Adaptive Orchestration & Failure Recovery Engine</span>
+          <ShieldAlert size={15} style={{ color: currentStep === 7 ? 'var(--state-success)' : currentStep > 0 ? 'var(--state-warning)' : 'var(--text-muted)' }} />
+          <span>Adaptive Orchestration & Autonomous Self-Healing Timeline</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            SELF-HEALING RECOVERY LOOP
+            HERO INNOVATION: FAULT INJECTION & RECOVERY
           </span>
-          <button
-            onClick={handleRunSimulation}
-            disabled={isSimulating}
-            className="btn-secondary"
-            style={{ padding: '3px 9px', fontSize: '0.74rem' }}
-          >
-            {isSimulating ? (
-              <>
-                <RefreshCw size={11} className="status-dot-running" />
-                <span>Simulating...</span>
-              </>
-            ) : (
-              <>
-                <Play size={11} />
-                <span>Replay Recovery Flow</span>
-              </>
-            )}
-          </button>
+          <span className={`badge ${currentStep === 7 ? 'badge-success' : currentStep > 0 ? 'badge-retrying' : 'badge-pending'}`}>
+            {currentStep === 7 ? 'RECOVERED (100%)' : currentStep > 0 ? `STEP ${currentStep}/7 ACTIVE` : 'ARMED'}
+          </span>
         </div>
       </div>
 
@@ -167,19 +121,19 @@ export default function FailureRecoveryFlow({ events = [], onTriggerRecoveryLog 
           gap: '8px',
         }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            <strong style={{ color: 'var(--text-primary)' }}>NEXUS Adaptive Loop:</strong> When QA detects a defect, the orchestrator diagnoses the root cause, formulates an adaptive patch strategy, reassigns the task with strict constraints, and re-verifies.
+            <strong style={{ color: 'var(--text-primary)' }}>NEXUS Adaptive Loop:</strong> Unlike brittle linear pipelines, NEXUS intercepts runtime exceptions, performs autonomous root-cause diagnosis, formulates corrective reassignments, and recovers autonomously without human intervention.
           </div>
           <div style={{
             fontSize: '0.72rem',
             fontFamily: 'var(--font-mono)',
-            fontWeight: '600',
+            fontWeight: '700',
             color: currentStep === 7 ? 'var(--state-success)' : currentStep > 0 ? 'var(--state-warning)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
           }}>
             <span className={`status-dot ${currentStep === 7 ? 'status-dot-success' : currentStep > 0 ? 'status-dot-running' : 'status-dot-pending'}`} />
-            <span>{currentStep === 7 ? 'RECOVERY COMPLETED' : currentStep > 0 ? `STEP ${currentStep} / 7 ACTIVE` : 'READY'}</span>
+            <span>{currentStep === 7 ? 'RECOVERY COMPLETED' : currentStep > 0 ? `STAGE ${currentStep} / 7 IN PROGRESS` : 'READY TO INTERCEPT'}</span>
           </div>
         </div>
 
@@ -197,7 +151,7 @@ export default function FailureRecoveryFlow({ events = [], onTriggerRecoveryLog 
               <div
                 key={stage.step}
                 style={{
-                  background: isActive ? 'var(--bg-surface-secondary)' : '#ffffff',
+                  background: isActive ? '#f8fafc' : '#ffffff',
                   border: `1px solid ${
                     isActive
                       ? 'var(--text-primary)'
@@ -217,20 +171,20 @@ export default function FailureRecoveryFlow({ events = [], onTriggerRecoveryLog 
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span className={`badge badge-${stage.badgeType}`} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>
+                    <span className={`badge badge-${stage.badgeType}`} style={{ fontSize: '0.64rem', padding: '1px 5px' }}>
                       {stage.badge}
                     </span>
                     <span style={{
                       fontSize: '0.68rem',
                       color: isCompleted ? 'var(--state-success)' : 'var(--text-muted)',
                       fontFamily: 'var(--font-mono)',
-                      fontWeight: '600'
+                      fontWeight: '700'
                     }}>
                       {isCompleted ? '✓' : `0${stage.step}`}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '3px' }}>
+                  <div style={{ fontSize: '0.84rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '3px' }}>
                     {stage.title}
                   </div>
 
