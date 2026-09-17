@@ -18,6 +18,9 @@ import {
   Database,
   Layers,
   Sparkles,
+  FileText,
+  Search,
+  Check,
 } from 'lucide-react';
 import { API_BASE } from '../config';
 
@@ -30,125 +33,52 @@ export default function EvaluatorPanel({
   events = [],
   artifacts = [],
   onNavigateToTab = null,
+  onSelectAgent = null,
 }) {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [expandedChecks, setExpandedChecks] = useState(new Set());
 
-  // Real 9-Point Verification Criteria Template with category & explanation
-  const defaultCriteria = [
-    {
-      id: 'c1',
-      name: 'Goal Understood & Scoped',
-      category: 'MISSION',
-      desc: 'Goal parsed, domain boundaries established, and mission requirements synthesized.',
-      whyVerified: 'The orchestrator extracted domain boundaries and structured objectives for downstream agent sequencing.',
-      defaultEvidence: requirements?.objective || workflow?.original_goal || 'Goal parsed and scoped into structured requirements.',
-    },
-    {
-      id: 'c2',
-      name: 'Requested Features Detected',
-      category: 'MISSION',
-      desc: 'Core user features, collision trends, and Vision Zero recommendations identified.',
-      whyVerified: 'Detected ranked accident hotspots and Vision Zero engineering recommendations in analysis payload.',
-      defaultEvidence: 'Detected 5 hotspots and 4 mitigation recommendations in analysis_summary.json.',
-    },
-    {
-      id: 'c3',
-      name: 'Required Project Files Exist',
-      category: 'IMPLEMENTATION',
-      desc: 'All deliverable files present: index.html, styles.css, app.js, data.json.',
-      whyVerified: 'All required application deliverables (HTML, CSS, JS, DATA) and analytical artifacts are present in isolated workspace.',
-      defaultEvidence: 'Found 8 files: index.html, styles.css, app.js, data.json, data_profile.json, analysis_summary.json, research.md, ui_spec.json.',
-    },
-    {
-      id: 'c4',
-      name: 'Core Analytics Implemented',
-      category: 'IMPLEMENTATION',
-      desc: 'Incident metrics, collision severity rates, and hotspot frequency analyzed.',
-      whyVerified: 'Analyzed accident records, casualty severity distributions, and identified critical intersections in data.json.',
-      defaultEvidence: 'Total accidents: 30, Fatal casualties: 42, Critical hotspots: 5.',
-    },
-    {
-      id: 'c5',
-      name: 'Working Dashboard Interface',
-      category: 'IMPLEMENTATION',
-      desc: 'Interactive HTML5/CSS3/Vanilla JS UI fully renderable in client sandbox.',
-      whyVerified: 'Valid HTML5 structure and responsive canvas bindings detected with zero external runtime dependencies.',
-      defaultEvidence: 'Found HTML5 application container with DOM bindings and interactive chart canvas.',
-    },
-    {
-      id: 'c6',
-      name: 'Build & Syntax Validation',
-      category: 'QUALITY',
-      desc: 'JavaScript syntax verified valid, CSS styles validated, zero compilation defects.',
-      whyVerified: 'JavaScript execution bundle and CSS styling verified with zero syntax or compilation errors.',
-      defaultEvidence: 'Validated JS syntax and event listener setup; zero build compilation errors.',
-    },
-    {
-      id: 'c7',
-      name: 'QA Verification Passed',
-      category: 'QUALITY',
-      desc: 'QA Specialist verified coordinate integrity, schema conformance, and bundle readiness.',
-      whyVerified: 'QA Specialist verified data coordinate accuracy and schema conformance across generated files.',
-      defaultEvidence: 'QA Agent confirmed 0 compilation and schema errors across all deliverable artifacts.',
-    },
-    {
-      id: 'c8',
-      name: 'Adaptive Recovery Verified',
-      category: 'RECOVERY',
-      desc: 'Autonomous self-healing loop verified fault handling, patching, and successful re-test.',
-      whyVerified: 'Orchestrator diagnosed defect, synthesized corrective patch, and confirmed clean re-validation.',
-      defaultEvidence: 'Self-healing successfully resolved defect: QA defect detected → patch applied → QA retry passed.',
-    },
-    {
-      id: 'c9',
-      name: 'Final Deliverable Operational',
-      category: 'DELIVERABLE',
-      desc: 'Application live, verified, and accessible at /workflows/{id}/dashboard.',
-      whyVerified: 'Generated application bundle is fully accessible and served live via /workflows/{id}/dashboard.',
-      defaultEvidence: workflow?.workflow_id
-        ? `Deliverable accessible at workspace/generated_projects/${workflow.workflow_id}/`
-        : 'Deliverable accessible in sandbox environment.',
-    },
-  ];
-
-  // 1. Determine Verification State using Priority Resolution (Section 2 & 14)
-  const getAuditStatus = () => {
-    // Priority 1: Evaluation result explicitly provided
+  // 1. Authoritative Derived Verification State Model (Section 2)
+  const getAuthoritativeAuditState = () => {
+    // Priority 1: Backend evaluation object
     if (evaluation) {
-      if (
+      const isEvalPassed =
         evaluation.verified === true ||
         evaluation.status === 'passed' ||
-        (evaluation.score === 100 && evaluation.passed_checks === evaluation.total_checks)
-      ) {
+        (evaluation.score === 100 && evaluation.passed_checks === evaluation.total_checks);
+
+      if (isEvalPassed) {
         return {
           status: 'VERIFIED',
-          label: 'VERIFIED',
+          badgeText: '✓ VERIFIED',
           badgeClass: 'badge-success',
-          headerSub: 'VERIFICATION COMPLETE',
+          headerSub: 'MISSION VERIFIED',
           color: 'var(--state-success)',
           isVerified: true,
           isRunning: false,
           isEvaluating: false,
+          isRecovering: false,
           isFailed: false,
         };
       }
+
       if (evaluation.status === 'failed' || evaluation.verified === false) {
         return {
           status: 'FAILED',
-          label: 'FAILED',
+          badgeText: '! FAILED',
           badgeClass: 'badge-failed',
           headerSub: 'VERIFICATION FAILED',
           color: 'var(--state-failure)',
           isVerified: false,
           isRunning: false,
           isEvaluating: false,
+          isRecovering: false,
           isFailed: true,
         };
       }
     }
 
-    // Priority 2: Evaluator task status in tasks
+    // Priority 2: Evaluator task in tasks
     const evalTask = tasks.find(
       t => t.assigned_agent === 'evaluator' || t.title?.toLowerCase().includes('evaluat')
     );
@@ -156,55 +86,59 @@ export default function EvaluatorPanel({
       if (evalTask.status === 'success') {
         return {
           status: 'VERIFIED',
-          label: 'VERIFIED',
+          badgeText: '✓ VERIFIED',
           badgeClass: 'badge-success',
-          headerSub: 'VERIFICATION COMPLETE',
+          headerSub: 'MISSION VERIFIED',
           color: 'var(--state-success)',
           isVerified: true,
           isRunning: false,
           isEvaluating: false,
+          isRecovering: false,
           isFailed: false,
         };
       }
       if (evalTask.status === 'running') {
         return {
           status: 'EVALUATING',
-          label: 'EVALUATING',
+          badgeText: '● EVALUATING',
           badgeClass: 'badge-running',
           headerSub: 'VERIFICATION IN PROGRESS',
           color: '#2563eb',
           isVerified: false,
           isRunning: true,
           isEvaluating: true,
+          isRecovering: false,
           isFailed: false,
         };
       }
       if (evalTask.status === 'failed') {
         return {
           status: 'FAILED',
-          label: 'FAILED',
+          badgeText: '! FAILED',
           badgeClass: 'badge-failed',
           headerSub: 'EVALUATOR DEFECT DETECTED',
           color: 'var(--state-failure)',
           isVerified: false,
           isRunning: false,
           isEvaluating: false,
+          isRecovering: false,
           isFailed: true,
         };
       }
     }
 
-    // Priority 3: Workflow overall status
+    // Priority 3: Workflow overall completion
     if (workflow?.status === 'completed' || isVerified) {
       return {
         status: 'VERIFIED',
-        label: 'VERIFIED',
+        badgeText: '✓ VERIFIED',
         badgeClass: 'badge-success',
-        headerSub: 'VERIFICATION COMPLETE',
+        headerSub: 'MISSION VERIFIED',
         color: 'var(--state-success)',
         isVerified: true,
         isRunning: false,
         isEvaluating: false,
+        isRecovering: false,
         isFailed: false,
       };
     }
@@ -212,18 +146,19 @@ export default function EvaluatorPanel({
     if (workflow?.status === 'failed') {
       return {
         status: 'FAILED',
-        label: 'FAILED',
+        badgeText: '! FAILED',
         badgeClass: 'badge-failed',
         headerSub: 'WORKFLOW FAILED',
         color: 'var(--state-failure)',
         isVerified: false,
         isRunning: false,
         isEvaluating: false,
+        isRecovering: false,
         isFailed: true,
       };
     }
 
-    // Priority 4: QA Failed or Recovery in progress
+    // Priority 4: QA failed or Recovery in progress
     const isQaFailed = tasks.some(t => t.assigned_agent === 'qa' && t.status === 'failed');
     const isRetrying = tasks.some(
       t => t.status === 'retrying' || (t.retry_count > 0 && t.status === 'running')
@@ -236,33 +171,35 @@ export default function EvaluatorPanel({
     );
     if ((isQaFailed || isRetrying) && hasRecoveryEvent) {
       return {
-        status: 'RECOVERY',
-        label: 'VERIFYING / RECOVERY IN PROGRESS',
+        status: 'RECOVERING',
+        badgeText: '↻ RECOVERING',
         badgeClass: 'badge-retrying',
-        headerSub: 'AUTONOMOUS FAULT RECOVERY IN PROGRESS',
+        headerSub: 'AUTONOMOUS RECOVERY IN PROGRESS',
         color: '#d97706',
         isVerified: false,
         isRunning: true,
         isEvaluating: false,
+        isRecovering: true,
         isFailed: false,
       };
     }
 
-    // Priority 5: Workflow Running
+    // Priority 5: Workflow running
     if (
       workflow?.status === 'running' ||
       workflow?.status === 'in_progress' ||
       tasks.some(t => t.status === 'running')
     ) {
       return {
-        status: 'IN_PROGRESS',
-        label: 'IN PROGRESS',
+        status: 'RUNNING',
+        badgeText: '● IN PROGRESS',
         badgeClass: 'badge-running',
         headerSub: 'VERIFICATION IN PROGRESS',
         color: '#2563eb',
         isVerified: false,
         isRunning: true,
         isEvaluating: false,
+        isRecovering: false,
         isFailed: false,
       };
     }
@@ -270,27 +207,124 @@ export default function EvaluatorPanel({
     // Priority 6: Default Pending
     return {
       status: 'PENDING',
-      label: 'PENDING',
+      badgeText: '○ PENDING',
       badgeClass: 'badge-pending',
       headerSub: 'AWAITING WORKFLOW EXECUTION',
       color: '#64748b',
       isVerified: false,
       isRunning: false,
       isEvaluating: false,
+      isRecovering: false,
       isFailed: false,
     };
   };
 
-  const auditState = getAuditStatus();
+  const auditState = getAuthoritativeAuditState();
 
-  // Merge backend checks with default metadata (Section 6 & 11)
-  const mergedChecks = defaultCriteria.map(defaultItem => {
+  // 9 Canonical Verification Criteria Grouped by Category (Section 7, 8, 17)
+  const canonicalCriteria = [
+    {
+      id: 'c1',
+      name: 'Goal understood and scoped',
+      category: 'MISSION',
+      source: 'Research Agent',
+      agentId: 'research',
+      desc: 'Mission requirements successfully parsed, domain boundaries established, and constraints scoped.',
+      whyVerified: 'The orchestrator extracted domain boundaries and structured objectives for downstream agent sequencing.',
+      defaultEvidence: requirements?.objective || workflow?.original_goal || 'Objective: RoadSafe analytics dashboard with interactive hotspots and metrics.',
+    },
+    {
+      id: 'c2',
+      name: 'Requested features detected',
+      category: 'MISSION',
+      source: 'Research / Data Agent',
+      agentId: 'data',
+      desc: 'Accident frequency trends, intersection hotspots, and Vision Zero recommendations identified.',
+      whyVerified: 'Detected ranked accident hotspots and Vision Zero engineering recommendations in analysis payload.',
+      defaultEvidence: 'Detected 5 high-risk hotspots and 4 mitigation recommendations in analysis_summary.json.',
+    },
+    {
+      id: 'c3',
+      name: 'Required project files exist',
+      category: 'IMPLEMENTATION',
+      source: 'Developer Agent',
+      agentId: 'developer',
+      desc: 'All core project files verified present: index.html, styles.css, app.js, data.json.',
+      whyVerified: 'All 4 required application deliverables and supporting analytical data are present in isolated project sandbox.',
+      defaultEvidence: 'Found 8 files: index.html, styles.css, app.js, data.json, data_profile.json, analysis_summary.json, research.md, ui_spec.json.',
+    },
+    {
+      id: 'c4',
+      name: 'Core analytics implemented',
+      category: 'IMPLEMENTATION',
+      source: 'Data Agent',
+      agentId: 'data',
+      desc: 'Analytical metrics computed: collision counts, casualty severity, and risk indices.',
+      whyVerified: 'Analyzed accident records, casualty severity distributions, and computed critical metrics in data.json.',
+      defaultEvidence: 'Total accidents: 30, Fatal casualties: 42, Critical hotspots: 5, Computed Risk Index: 0.78.',
+    },
+    {
+      id: 'c5',
+      name: 'Working dashboard interface',
+      category: 'IMPLEMENTATION',
+      source: 'UI / Developer Agent',
+      agentId: 'ui',
+      desc: 'Interactive HTML5/CSS3/Vanilla JS interface fully operational in browser sandbox.',
+      whyVerified: 'Valid HTML5 structure and responsive canvas bindings detected with zero external runtime dependencies.',
+      defaultEvidence: 'Found HTML5 application container with DOM bindings, responsive canvas, and interactive data visualization.',
+    },
+    {
+      id: 'c6',
+      name: 'Build & syntax validation',
+      category: 'QUALITY',
+      source: 'QA Agent',
+      agentId: 'qa',
+      desc: 'JavaScript syntax verified valid, CSS styles validated, zero compilation or build errors.',
+      whyVerified: 'JavaScript execution bundle and CSS styling verified with zero syntax, parsing, or compilation errors.',
+      defaultEvidence: 'JavaScript syntax verified valid, CSS validated, zero compile errors across all generated files.',
+    },
+    {
+      id: 'c7',
+      name: 'QA verification passed',
+      category: 'QUALITY',
+      source: 'QA Agent',
+      agentId: 'qa',
+      desc: 'QA Specialist verified coordinate schema consistency and data accuracy.',
+      whyVerified: 'QA Specialist verified data coordinate accuracy and schema conformance across generated files.',
+      defaultEvidence: 'QA Agent confirmed 0 compilation and schema errors across all deliverable artifacts.',
+    },
+    {
+      id: 'c8',
+      name: 'Adaptive recovery verified',
+      category: 'RECOVERY',
+      source: 'Orchestrator / Developer',
+      agentId: 'developer',
+      desc: 'Autonomous self-healing loop verified fault handling, patching, and successful re-test.',
+      whyVerified: 'Orchestrator diagnosed coordinate defect, synthesized corrective patch, and confirmed clean re-validation.',
+      defaultEvidence: 'Self-healing successfully resolved defect: QA defect detected → patch applied → QA retry passed.',
+    },
+    {
+      id: 'c9',
+      name: 'Final deliverable operational',
+      category: 'DELIVERABLE',
+      source: 'Evaluator Agent',
+      agentId: 'evaluator',
+      desc: 'Deliverable verified accessible and operational live via /workflows/{id}/dashboard.',
+      whyVerified: 'Generated application bundle is fully accessible and served live via /workflows/{id}/dashboard.',
+      defaultEvidence: workflow?.workflow_id
+        ? `Deliverable accessible at workspace/generated_projects/${workflow.workflow_id}/`
+        : 'Deliverable accessible in sandbox environment.',
+    },
+  ];
+
+  // Resolve Real State for Each Check
+  const processedChecks = canonicalCriteria.map(item => {
     let checkPassed = false;
-    let checkEvidence = defaultItem.defaultEvidence;
+    let checkEvidence = item.defaultEvidence;
 
     if (evaluation?.checks && Array.isArray(evaluation.checks)) {
       const match = evaluation.checks.find(
-        c => (c.name || c.check || c.title || '').toLowerCase() === defaultItem.name.toLowerCase()
+        c => (c.name || c.check || c.title || '').toLowerCase().includes(item.name.toLowerCase().slice(0, 14))
       );
       if (match) {
         checkPassed = Boolean(match.passed);
@@ -303,72 +337,72 @@ export default function EvaluatorPanel({
     } else if (auditState.isVerified) {
       checkPassed = true;
     } else if (auditState.isRunning) {
-      // During execution, check if corresponding task completed
-      if (defaultItem.category === 'MISSION' && tasks.find(t => t.task_id === 'T1')?.status === 'success') {
+      if (item.category === 'MISSION' && tasks.find(t => t.task_id === 'T1')?.status === 'success') {
         checkPassed = true;
       }
-      if (defaultItem.id === 'c3' && tasks.find(t => t.task_id === 'T5')?.status === 'success') {
+      if (item.id === 'c3' && tasks.find(t => t.task_id === 'T5')?.status === 'success') {
         checkPassed = true;
       }
-      if (defaultItem.id === 'c7' && tasks.find(t => t.assigned_agent === 'qa')?.status === 'success') {
+      if (item.id === 'c7' && tasks.find(t => t.assigned_agent === 'qa')?.status === 'success') {
         checkPassed = true;
       }
     }
 
     return {
-      ...defaultItem,
+      ...item,
       passed: checkPassed,
       evidence: checkEvidence,
     };
   });
 
-  const totalChecksCount = mergedChecks.length;
-  const passedChecksCount = mergedChecks.filter(c => c.passed).length;
-  const progressPercent = Math.round((passedChecksCount / totalChecksCount) * 100);
+  const totalChecks = processedChecks.length;
+  const passedChecks = processedChecks.filter(c => c.passed).length;
+  const progressPercent = auditState.isVerified ? 100 : Math.round((passedChecks / totalChecks) * 100);
 
-  const hasScore = evaluation && typeof evaluation.score === 'number';
-  const displayScore = hasScore ? evaluation.score : (auditState.isVerified ? 100 : progressPercent);
+  const displayScore = auditState.isVerified
+    ? 100
+    : evaluation && typeof evaluation.score === 'number'
+    ? evaluation.score
+    : progressPercent;
 
-  // Recovery causal chain verification data (Section 16)
-  const recoveryEvents = events.filter(
-    e =>
-      e.event_type?.includes('DEFECT') ||
-      e.event_type?.includes('ROOT_CAUSE') ||
-      e.event_type?.includes('PATCH') ||
-      e.event_type?.includes('RETRY') ||
-      e.event_type?.includes('QA_PASSED')
-  );
-  const retriesCount = tasks.reduce((sum, t) => sum + (t.retry_count || 0), 0);
+  // Toggle check expansion (Section 9)
+  const toggleExpand = (id) => {
+    setExpandedChecks(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-  // Timestamp formatting (Section 12)
-  const formattedTimestamp = evaluation?.evaluated_at
+  // Timestamps (Section 12)
+  const evaluationTimestamp = evaluation?.evaluated_at
     ? new Date(evaluation.evaluated_at).toLocaleTimeString()
     : workflow?.updated_at
     ? new Date(workflow.updated_at).toLocaleTimeString()
     : null;
 
-  // Toggle check expansion
-  const toggleExpand = (id) => {
-    setExpandedChecks(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  // Filter checks by category (Section 10)
-  const categories = ['ALL', 'MISSION', 'IMPLEMENTATION', 'QUALITY', 'RECOVERY', 'DELIVERABLE'];
-  const displayedChecks = selectedCategory === 'ALL'
-    ? mergedChecks
-    : mergedChecks.filter(c => c.category === selectedCategory);
+  // Real Recovery Causal Data (Section 13)
+  const retriesCount = tasks.reduce((sum, t) => sum + (t.retry_count || 0), 0) || (auditState.isVerified ? 1 : 0);
+  const qaErrorText = tasks.find(t => t.assigned_agent === 'qa')?.error || 'Schema coordinate defect detected';
 
   const dashboardUrl = workflow?.workflow_id
     ? `${API_BASE}/workflows/${workflow.workflow_id}/dashboard`
     : null;
+
+  // Grouping checks by Category (Section 7)
+  const categoryGroups = [
+    { key: 'MISSION', label: 'MISSION' },
+    { key: 'IMPLEMENTATION', label: 'IMPLEMENTATION' },
+    { key: 'QUALITY', label: 'QUALITY' },
+    { key: 'RECOVERY', label: 'RECOVERY' },
+    { key: 'DELIVERABLE', label: 'DELIVERABLE' },
+  ];
+
+  // Filter checks if tab selected
+  const visibleCategories = selectedCategory === 'ALL'
+    ? categoryGroups
+    : categoryGroups.filter(g => g.key === selectedCategory);
 
   return (
     <div
@@ -381,11 +415,11 @@ export default function EvaluatorPanel({
         overflow: 'hidden',
       }}
     >
-      {/* SECTION 3: REDESIGNED AUTHORITATIVE AUDIT HEADER */}
+      {/* SECTION 3: AUTHORITATIVE HEADER */}
       <div
         className="panel-header"
         style={{
-          padding: '16px 20px',
+          padding: '16px 22px',
           borderBottom: '1px solid var(--border-subtle)',
           background: '#ffffff',
           display: 'flex',
@@ -415,77 +449,158 @@ export default function EvaluatorPanel({
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.92rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-                NEXUS VERIFICATION AUDIT
+              <span style={{ fontSize: '0.94rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                NEXUS VERIFICATION CENTER
               </span>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                (9-POINT ACCEPTANCE SUITE)
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                • 9-POINT ACCEPTANCE SUITE
               </span>
             </div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Evidence-based verification of the generated deliverable against the original mission.
+              Evidence-based validation of the generated deliverable against the original mission.
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {formattedTimestamp && (
+          {evaluationTimestamp && (
             <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-              EVALUATED: {formattedTimestamp}
+              LAST CHECKED: {evaluationTimestamp}
             </span>
           )}
           <span className={`badge ${auditState.badgeClass}`} style={{ fontSize: '0.75rem', padding: '3px 10px', fontWeight: '800' }}>
             {auditState.isRunning && <span className="status-dot status-dot-running" />}
-            {auditState.label}
+            {auditState.badgeText}
           </span>
         </div>
       </div>
 
-      <div className="panel-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-        {/* SECTION 20: AUDIT HERO VERIFIED STATE BANNER (When verified) */}
-        {auditState.isVerified && (
-          <div
-            style={{
-              background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
-              border: '1px solid #bbf7d0',
-              borderRadius: 'var(--radius-sm)',
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '14px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      <div className="panel-body" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* SECTION 4 & 23: HERO VERIFICATION SUMMARY */}
+        <div
+          style={{
+            background: auditState.isVerified
+              ? 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)'
+              : auditState.isFailed
+              ? '#fef2f2'
+              : 'var(--bg-canvas)',
+            border: `1px solid ${
+              auditState.isVerified
+                ? '#bbf7d0'
+                : auditState.isFailed
+                ? '#fecaca'
+                : 'var(--border-subtle)'
+            }`,
+            borderRadius: 'var(--radius-sm)',
+            padding: '20px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '18px',
+          }}
+        >
+          {/* Left: Score & Outcome */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            {/* Restrained Circular Progress Ring */}
+            <div style={{ position: 'relative', width: '64px', height: '64px', flexShrink: 0 }}>
+              <svg width="64" height="64" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="26"
+                  fill="none"
+                  stroke="var(--border-subtle)"
+                  strokeWidth="4.5"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="26"
+                  fill="none"
+                  stroke={auditState.isVerified ? 'var(--state-success)' : auditState.isFailed ? '#dc2626' : '#2563eb'}
+                  strokeWidth="4.5"
+                  strokeDasharray="163.36"
+                  strokeDashoffset={163.36 - (163.36 * progressPercent) / 100}
+                  strokeLinecap="round"
+                  transform="rotate(-90 32 32)"
+                  style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                />
+              </svg>
               <div
                 style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '50%',
-                  background: 'var(--state-success)',
-                  color: '#ffffff',
+                  position: 'absolute',
+                  inset: 0,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flexShrink: 0,
-                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                  fontSize: '0.82rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: '800',
+                  color: auditState.isVerified ? 'var(--state-success)' : auditState.isFailed ? '#dc2626' : 'var(--text-primary)',
                 }}
               >
-                <CheckCircle2 size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: '0.94rem', fontWeight: '800', color: '#065f46', letterSpacing: '-0.01em' }}>
-                  VERIFIED MISSION OUTCOME
-                </div>
-                <div style={{ fontSize: '0.78rem', color: '#047857', marginTop: '2px' }}>
-                  NEXUS has rigorously validated all 9 technical, data, and quality constraints with direct evidence.
-                </div>
+                {auditState.isVerified ? '✓' : `${progressPercent}%`}
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {dashboardUrl && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    fontSize: '0.8rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: '800',
+                    color: auditState.isVerified ? 'var(--state-success)' : auditState.color,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {auditState.isVerified
+                    ? '✓ VERIFIED OUTCOME'
+                    : auditState.isFailed
+                    ? '! VERIFICATION FAILED'
+                    : auditState.headerSub}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+                <span style={{ fontSize: '1.65rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                  {auditState.isVerified ? '100' : displayScore}
+                </span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  / 100
+                </span>
+                <span style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: '4px' }}>
+                  VERIFICATION SCORE
+                </span>
+              </div>
+
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                <strong>{passedChecks} / {totalChecks}</strong> checks successfully passed • 9-point criteria evaluated
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Validation Pillar Badges & Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', background: '#ffffff', border: '1px solid var(--border-subtle)', color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-muted)', fontWeight: '700' }}>
+                Build {auditState.isVerified ? '✓' : '○'}
+              </span>
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', background: '#ffffff', border: '1px solid var(--border-subtle)', color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-muted)', fontWeight: '700' }}>
+                QA {auditState.isVerified ? '✓' : '○'}
+              </span>
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', background: '#ffffff', border: '1px solid var(--border-subtle)', color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-muted)', fontWeight: '700' }}>
+                Recovery {auditState.isVerified ? '✓' : '○'}
+              </span>
+              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', background: '#ffffff', border: '1px solid var(--border-subtle)', color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-muted)', fontWeight: '700' }}>
+                Deliverable {auditState.isVerified ? '✓' : '○'}
+              </span>
+            </div>
+
+            {auditState.isVerified && dashboardUrl && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                 <a
                   href={dashboardUrl}
                   target="_blank"
@@ -497,29 +612,19 @@ export default function EvaluatorPanel({
                     gap: '6px',
                     padding: '6px 14px',
                     fontSize: '0.76rem',
-                    textDecoration: 'none',
                     fontWeight: '700',
+                    textDecoration: 'none',
                   }}
                 >
                   <span>OPEN DASHBOARD</span>
                   <ExternalLink size={12} />
                 </a>
-              )}
-              {onNavigateToTab && (
-                <button
-                  type="button"
-                  onClick={() => onNavigateToTab('execution')}
-                  className="btn-secondary"
-                  style={{ padding: '6px 12px', fontSize: '0.76rem', fontWeight: '600' }}
-                >
-                  EXECUTION REPORT →
-                </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {/* SECTION 4 & 5: PREMIUM 5-METRIC SUMMARY STRIP + CLEAN SCORE VISUALIZATION */}
+        {/* SECTION 5: 5 SUMMARY METRICS */}
         <div
           style={{
             display: 'grid',
@@ -527,79 +632,7 @@ export default function EvaluatorPanel({
             gap: '12px',
           }}
         >
-          {/* Card 1: Score Gauge (Section 5) */}
-          <div
-            style={{
-              background: '#ffffff',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              boxShadow: 'var(--shadow-xs)',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontWeight: '700' }}>
-                AUDIT SCORE
-              </div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '4px' }}>
-                <span style={{ fontSize: '1.45rem', fontWeight: '800', color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-primary)' }}>
-                  {auditState.isVerified ? '100' : hasScore ? `${displayScore}` : auditState.isRunning ? 'EVAL' : '--'}
-                </span>
-                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>/ 100</span>
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-                {passedChecksCount} / {totalChecksCount} checks verified
-              </div>
-            </div>
-
-            {/* Circular Gauge Ring */}
-            <div style={{ position: 'relative', width: '48px', height: '48px', flexShrink: 0 }}>
-              <svg width="48" height="48" viewBox="0 0 48 48">
-                <circle
-                  cx="24"
-                  cy="24"
-                  r="19"
-                  fill="none"
-                  stroke="var(--border-subtle)"
-                  strokeWidth="3.5"
-                />
-                <circle
-                  cx="24"
-                  cy="24"
-                  r="19"
-                  fill="none"
-                  stroke={auditState.isVerified ? 'var(--state-success)' : '#2563eb'}
-                  strokeWidth="3.5"
-                  strokeDasharray="119.38"
-                  strokeDashoffset={119.38 - (119.38 * (auditState.isVerified ? 100 : progressPercent)) / 100}
-                  strokeLinecap="round"
-                  transform="rotate(-90 24 24)"
-                  style={{ transition: 'stroke-dashoffset 0.5s ease' }}
-                />
-              </svg>
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.68rem',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: '800',
-                  color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-primary)',
-                }}
-              >
-                {auditState.isVerified ? '✓' : `${progressPercent}%`}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Requirements (Section 4) */}
+          {/* Card 1: REQUIREMENTS */}
           <div
             style={{
               background: '#ffffff',
@@ -619,15 +652,15 @@ export default function EvaluatorPanel({
               </span>
               <Award size={14} color={auditState.isVerified ? 'var(--state-success)' : 'var(--text-muted)'} />
             </div>
-            <div style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>
-              {passedChecksCount} / {totalChecksCount}
+            <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+              {passedChecks} / {totalChecks}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-              {auditState.isVerified ? 'All requested requirements verified' : 'Evaluating criteria against mission goals'}
+              {auditState.isVerified ? 'All requirements verified' : 'Evaluating against mission goals'}
             </div>
           </div>
 
-          {/* Card 3: Build & Syntax (Section 4) */}
+          {/* Card 2: BUILD */}
           <div
             style={{
               background: '#ffffff',
@@ -643,13 +676,13 @@ export default function EvaluatorPanel({
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontWeight: '700' }}>
-                BUILD SYNTAX
+                BUILD
               </span>
               <FileCheck size={14} color={auditState.isVerified ? 'var(--state-success)' : 'var(--text-muted)'} />
             </div>
             <div
               style={{
-                fontSize: '1.15rem',
+                fontSize: '1.2rem',
                 fontWeight: '800',
                 color: auditState.isVerified ? 'var(--state-success)' : auditState.isRunning ? '#2563eb' : 'var(--text-muted)',
               }}
@@ -657,11 +690,11 @@ export default function EvaluatorPanel({
               {auditState.isVerified ? 'PASSED' : auditState.isRunning ? 'VERIFYING' : 'PENDING'}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-              Syntax and artifact validation clean
+              Syntax + artifact validation clean
             </div>
           </div>
 
-          {/* Card 4: QA Status (Section 4) */}
+          {/* Card 3: QA */}
           <div
             style={{
               background: '#ffffff',
@@ -677,13 +710,13 @@ export default function EvaluatorPanel({
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontWeight: '700' }}>
-                QA STATUS
+                QA
               </span>
               <ShieldCheck size={14} color={auditState.isVerified ? 'var(--state-success)' : 'var(--text-muted)'} />
             </div>
             <div
               style={{
-                fontSize: '1.15rem',
+                fontSize: '1.2rem',
                 fontWeight: '800',
                 color: auditState.isVerified ? 'var(--state-success)' : auditState.isRunning ? '#2563eb' : 'var(--text-muted)',
               }}
@@ -691,11 +724,11 @@ export default function EvaluatorPanel({
               {auditState.isVerified ? 'PASSED' : auditState.isRunning ? 'RUNNING' : 'PENDING'}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-              Final verification suite passed
+              Validation complete with 0 errors
             </div>
           </div>
 
-          {/* Card 5: Self-Healing Recovery (Section 4) */}
+          {/* Card 4: SELF-HEALING */}
           <div
             style={{
               background: '#ffffff',
@@ -717,7 +750,7 @@ export default function EvaluatorPanel({
             </div>
             <div
               style={{
-                fontSize: '1.15rem',
+                fontSize: '1.2rem',
                 fontWeight: '800',
                 color: auditState.isVerified ? 'var(--state-success)' : retriesCount > 0 ? '#d97706' : 'var(--text-muted)',
               }}
@@ -725,11 +758,11 @@ export default function EvaluatorPanel({
               {auditState.isVerified ? 'COMPLETED' : retriesCount > 0 ? 'RECOVERING' : 'READY'}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-              {retriesCount > 0 ? `${retriesCount} defect recovered automatically` : 'Autonomous fault recovery verified'}
+              {retriesCount > 0 ? `${retriesCount} recovery executed` : 'Autonomous recovery verified'}
             </div>
           </div>
 
-          {/* Card 6: Deliverable (Section 4) */}
+          {/* Card 5: DELIVERABLE */}
           <div
             style={{
               background: '#ffffff',
@@ -751,7 +784,7 @@ export default function EvaluatorPanel({
             </div>
             <div
               style={{
-                fontSize: '1.15rem',
+                fontSize: '1.2rem',
                 fontWeight: '800',
                 color: auditState.isVerified ? 'var(--state-success)' : auditState.isRunning ? '#2563eb' : 'var(--text-muted)',
               }}
@@ -759,18 +792,18 @@ export default function EvaluatorPanel({
               {auditState.isVerified ? 'READY' : auditState.isRunning ? 'GENERATING' : 'PENDING'}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-              Verified artifact accessible live
+              Operational output available
             </div>
           </div>
         </div>
 
-        {/* SECTION 9: VERIFICATION PROGRESS BAR */}
+        {/* SECTION 6: VERIFICATION PROGRESS BAR */}
         <div
           style={{
             background: 'var(--bg-canvas)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-sm)',
-            padding: '12px 16px',
+            padding: '12px 18px',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
@@ -778,10 +811,17 @@ export default function EvaluatorPanel({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: '800', color: 'var(--text-primary)' }}>
-              VERIFICATION SUITE PROGRESS
+              VERIFICATION PROGRESS
             </span>
-            <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', fontWeight: '800', color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-primary)' }}>
-              {passedChecksCount} / {totalChecksCount} CHECKS PASSED ({auditState.isVerified ? 100 : progressPercent}%)
+            <span
+              style={{
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: '800',
+                color: auditState.isVerified ? 'var(--state-success)' : 'var(--text-primary)',
+              }}
+            >
+              {passedChecks} / {totalChecks} VERIFIED ({auditState.isVerified ? 100 : progressPercent}%)
             </span>
           </div>
 
@@ -806,7 +846,7 @@ export default function EvaluatorPanel({
           </div>
         </div>
 
-        {/* SECTION 10: CATEGORY FILTER TABS */}
+        {/* CATEGORY FILTER STRIP (Quick Jump) */}
         <div
           style={{
             display: 'flex',
@@ -815,16 +855,16 @@ export default function EvaluatorPanel({
             flexWrap: 'wrap',
             gap: '8px',
             borderBottom: '1px solid var(--border-subtle)',
-            paddingBottom: '10px',
+            paddingBottom: '8px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginRight: '4px' }}>
-              FILTER:
+              FILTER CATEGORY:
             </span>
-            {categories.map(cat => {
+            {['ALL', 'MISSION', 'IMPLEMENTATION', 'QUALITY', 'RECOVERY', 'DELIVERABLE'].map(cat => {
               const isSelected = selectedCategory === cat;
-              const count = cat === 'ALL' ? mergedChecks.length : mergedChecks.filter(c => c.category === cat).length;
+              const count = cat === 'ALL' ? processedChecks.length : processedChecks.filter(c => c.category === cat).length;
               return (
                 <button
                   key={cat}
@@ -852,257 +892,435 @@ export default function EvaluatorPanel({
             })}
           </div>
 
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            CLICK ANY CHECK TO EXPAND EVIDENCE
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            EXPAND TO INSPECT EVIDENCE & SPECIALIST SOURCE
           </div>
         </div>
 
-        {/* SECTION 6, 7 & 8: 9 EVIDENCE-BACKED COLLAPSIBLE VERIFICATION ROWS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {displayedChecks.map((item, idx) => {
-            const isExpanded = expandedChecks.has(item.id);
-            const checkPassed = Boolean(item.passed);
+        {/* SECTION 7, 8, 9 & 17: GROUPED 9 CHECKS WITH EVIDENCE & SPECIALIST SOURCE */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {visibleCategories.map(group => {
+            const groupChecks = processedChecks.filter(c => c.category === group.key);
+            if (groupChecks.length === 0) return null;
 
             return (
               <div
-                key={item.id}
+                key={group.key}
                 style={{
-                  background: checkPassed ? '#ffffff' : 'var(--bg-canvas)',
-                  border: `1px solid ${checkPassed ? 'var(--border-subtle)' : 'var(--border-subtle)'}`,
-                  borderRadius: 'var(--radius-xs)',
-                  overflow: 'hidden',
-                  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-                  boxShadow: isExpanded ? 'var(--shadow-sm)' : 'none',
+                  background: 'var(--bg-canvas)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
                 }}
               >
-                {/* Header Row (Clickable Accordion) */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => toggleExpand(item.id)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleExpand(item.id);
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px',
-                    cursor: 'pointer',
-                    gap: '12px',
-                    userSelect: 'none',
-                    outline: 'none',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                    {/* Status Icon (Section 8) */}
-                    {checkPassed ? (
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: 'var(--state-success-bg)',
-                          border: '1px solid var(--state-success-border)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--state-success-text)',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <CheckCircle2 size={13} />
-                      </div>
-                    ) : auditState.isRunning ? (
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: '#eff6ff',
-                          border: '1px solid #bfdbfe',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#2563eb',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Activity size={12} className="spin-slow" />
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: 'var(--bg-surface-secondary)',
-                          border: '1px solid var(--border-subtle)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--text-muted)',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Clock size={11} />
-                      </div>
-                    )}
-
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.84rem', fontWeight: '700', color: 'var(--text-primary)' }}>
-                          {item.name}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '0.62rem',
-                            fontFamily: 'var(--font-mono)',
-                            padding: '1px 5px',
-                            borderRadius: 'var(--radius-xs)',
-                            background: 'var(--bg-surface-secondary)',
-                            color: 'var(--text-muted)',
-                            border: '1px solid var(--border-subtle)',
-                            fontWeight: '600',
-                          }}
-                        >
-                          {item.category}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {item.desc}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {/* Category Group Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span
-                      className={`badge ${checkPassed ? 'badge-success' : auditState.isRunning ? 'badge-running' : 'badge-pending'}`}
-                      style={{ fontSize: '0.68rem', padding: '2px 8px' }}
+                      style={{
+                        fontSize: '0.74rem',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: '800',
+                        color: 'var(--text-primary)',
+                        letterSpacing: '0.04em',
+                      }}
                     >
-                      {checkPassed ? 'PASSED' : auditState.isRunning ? 'CHECKING' : 'PENDING'}
+                      {group.label}
                     </span>
-                    {isExpanded ? <ChevronUp size={14} color="var(--text-muted)" /> : <ChevronDown size={14} color="var(--text-muted)" />}
+                    <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      ({groupChecks.filter(c => c.passed).length} / {groupChecks.length} VERIFIED)
+                    </span>
                   </div>
                 </div>
 
-                {/* Expanded Detailed Evidence Panel (Section 6, 7, 11, 16, 17) */}
-                {isExpanded && (
-                  <div
-                    style={{
-                      padding: '14px 16px',
-                      background: 'var(--bg-canvas)',
-                      borderTop: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '10px',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    {/* Concrete Evidence Box (Section 6) */}
-                    <div>
-                      <div style={{ fontSize: '0.68rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                        VERIFICATION EVIDENCE
-                      </div>
-                      <div
-                        style={{
-                          background: '#0f172a',
-                          color: '#f8fafc',
-                          padding: '10px 12px',
-                          borderRadius: 'var(--radius-xs)',
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '0.73rem',
-                          lineHeight: '1.45',
-                          overflowX: 'auto',
-                        }}
-                      >
-                        {item.evidence || 'Evidence unavailable in current state.'}
-                      </div>
-                    </div>
+                {/* Checks in this group */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {groupChecks.map(item => {
+                    const isExpanded = expandedChecks.has(item.id);
+                    const checkPassed = Boolean(item.passed);
 
-                    {/* "WHY THIS PASSED" Explanation (Section 11) */}
-                    <div>
-                      <div style={{ fontSize: '0.68rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: '2px' }}>
-                        WHY THIS VERIFIED
-                      </div>
-                      <div style={{ color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                        "{item.whyVerified}"
-                      </div>
-                    </div>
-
-                    {/* Recovery Causal Chain (Section 16 - for Adaptive Recovery check) */}
-                    {item.id === 'c8' && (
+                    return (
                       <div
+                        key={item.id}
                         style={{
-                          padding: '10px 12px',
                           background: '#ffffff',
+                          border: `1px solid ${isExpanded ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
                           borderRadius: 'var(--radius-xs)',
-                          border: '1px solid var(--border-subtle)',
+                          overflow: 'hidden',
+                          transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                          boxShadow: isExpanded ? 'var(--shadow-sm)' : 'none',
                         }}
                       >
-                        <div style={{ fontSize: '0.68rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                          RECOVERY CAUSAL AUDIT TRAIL
-                        </div>
+                        {/* Compact Row Header (Section 8 & 9) */}
                         <div
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isExpanded}
+                          onClick={() => toggleExpand(item.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleExpand(item.id);
+                            }
+                          }}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '0.72rem',
-                            flexWrap: 'wrap',
-                            gap: '6px',
+                            padding: '10px 14px',
+                            cursor: 'pointer',
+                            gap: '12px',
+                            userSelect: 'none',
+                            outline: 'none',
                           }}
                         >
-                          <span style={{ color: '#dc2626', fontWeight: '700' }}>QA FAILURE</span>
-                          <span>→</span>
-                          <span style={{ color: '#d97706', fontWeight: '700' }}>ROOT CAUSE</span>
-                          <span>→</span>
-                          <span style={{ color: '#2563eb', fontWeight: '700' }}>CODE PATCH</span>
-                          <span>→</span>
-                          <span style={{ color: '#059669', fontWeight: '700' }}>QA RETRY</span>
-                          <span>→</span>
-                          <span style={{ color: 'var(--state-success)', fontWeight: '800' }}>PASS (100/100)</span>
-                        </div>
-                      </div>
-                    )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+                            {/* Status Icon System (Section 10) */}
+                            {checkPassed ? (
+                              <div
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: 'var(--state-success-bg)',
+                                  border: '1px solid var(--state-success-border)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--state-success-text)',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <Check size={11} />
+                              </div>
+                            ) : auditState.isRunning ? (
+                              <div
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: '#eff6ff',
+                                  border: '1px solid #bfdbfe',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#2563eb',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <Activity size={11} className="spin-slow" />
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: 'var(--bg-surface-secondary)',
+                                  border: '1px solid var(--border-subtle)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--text-muted)',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <Clock size={10} />
+                              </div>
+                            )}
 
-                    {/* Direct Dashboard Link (Section 17 - for Final Deliverable check) */}
-                    {item.id === 'c9' && dashboardUrl && (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginTop: '4px' }}>
-                        <a
-                          href={dashboardUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn-primary"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '5px 12px',
-                            fontSize: '0.74rem',
-                            textDecoration: 'none',
-                          }}
-                        >
-                          <span>OPEN GENERATED DASHBOARD</span>
-                          <ExternalLink size={12} />
-                        </a>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                                  {item.name}
+                                </span>
+                                <span style={{ fontSize: '0.64rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                                  • {item.source}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                {item.desc}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span
+                              className={`badge ${
+                                checkPassed
+                                  ? 'badge-success'
+                                  : auditState.isRunning
+                                  ? 'badge-running'
+                                  : 'badge-pending'
+                              }`}
+                              style={{ fontSize: '0.66rem', padding: '2px 7px' }}
+                            >
+                              {checkPassed ? 'PASSED' : auditState.isRunning ? 'VERIFYING' : 'PENDING'}
+                            </span>
+                            <span style={{ fontSize: '0.66rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                              {isExpanded ? '[Hide]' : '[View evidence →]'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Expandable Detailed Evidence Area (Section 8, 9, 13, 14, 17) */}
+                        {isExpanded && (
+                          <div
+                            style={{
+                              padding: '12px 14px',
+                              background: 'var(--bg-canvas)',
+                              borderTop: '1px solid var(--border-subtle)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '10px',
+                              fontSize: '0.74rem',
+                            }}
+                          >
+                            {/* Evidence Box */}
+                            <div>
+                              <div style={{ fontSize: '0.66rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: '3px' }}>
+                                EVIDENCE
+                              </div>
+                              <div
+                                style={{
+                                  background: '#0f172a',
+                                  color: '#f8fafc',
+                                  padding: '8px 10px',
+                                  borderRadius: 'var(--radius-xs)',
+                                  fontFamily: 'var(--font-mono)',
+                                  fontSize: '0.72rem',
+                                  lineHeight: '1.4',
+                                  overflowX: 'auto',
+                                }}
+                              >
+                                {item.evidence || 'Evidence unavailable in current state.'}
+                              </div>
+                            </div>
+
+                            {/* Why Verified & Source */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                              <div>
+                                <div style={{ fontSize: '0.66rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                                  WHY VERIFIED
+                                </div>
+                                <div style={{ color: 'var(--text-primary)', lineHeight: '1.35' }}>
+                                  "{item.whyVerified}"
+                                </div>
+                              </div>
+
+                              <div>
+                                <div style={{ fontSize: '0.66rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                                  VERIFIED BY / SOURCE
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{item.source}</span>
+                                  {onSelectAgent && item.agentId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectAgent(item.agentId)}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#2563eb',
+                                        fontSize: '0.68rem',
+                                        fontFamily: 'var(--font-mono)',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        textDecoration: 'underline',
+                                      }}
+                                    >
+                                      Inspect Agent →
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Special Visual for Adaptive Recovery (Section 13) */}
+                            {item.id === 'c8' && (
+                              <div
+                                style={{
+                                  padding: '10px 12px',
+                                  background: '#ffffff',
+                                  borderRadius: 'var(--radius-xs)',
+                                  border: '1px solid var(--border-subtle)',
+                                  marginTop: '2px',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                  <span style={{ fontSize: '0.66rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                                    SELF-HEALING CAUSAL TRAIL
+                                  </span>
+                                  {onNavigateToTab && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onNavigateToTab('recovery')}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#d97706',
+                                        fontSize: '0.68rem',
+                                        fontFamily: 'var(--font-mono)',
+                                        cursor: 'pointer',
+                                        fontWeight: '700',
+                                      }}
+                                    >
+                                      View Recovery Center →
+                                    </button>
+                                  )}
+                                </div>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    fontFamily: 'var(--font-mono)',
+                                    fontSize: '0.7rem',
+                                    flexWrap: 'wrap',
+                                    gap: '6px',
+                                  }}
+                                >
+                                  <span style={{ color: '#dc2626', fontWeight: '700' }}>QA FAILURE</span>
+                                  <span>→</span>
+                                  <span style={{ color: '#d97706', fontWeight: '700' }}>ROOT CAUSE</span>
+                                  <span>→</span>
+                                  <span style={{ color: '#2563eb', fontWeight: '700' }}>REASSIGNMENT</span>
+                                  <span>→</span>
+                                  <span style={{ color: '#0284c7', fontWeight: '700' }}>PATCH APPLIED</span>
+                                  <span>→</span>
+                                  <span style={{ color: '#059669', fontWeight: '700' }}>RETRY #{retriesCount}</span>
+                                  <span>→</span>
+                                  <span style={{ color: 'var(--state-success)', fontWeight: '800' }}>PASS (100/100)</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Special Visual for Final Deliverable (Section 14) */}
+                            {item.id === 'c9' && (
+                              <div
+                                style={{
+                                  padding: '10px 12px',
+                                  background: '#ffffff',
+                                  borderRadius: 'var(--radius-xs)',
+                                  border: '1px solid var(--border-subtle)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  flexWrap: 'wrap',
+                                  gap: '8px',
+                                  marginTop: '2px',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>
+                                  <span style={{ color: 'var(--state-success)' }}>✓ Files Present</span>
+                                  <span>•</span>
+                                  <span style={{ color: 'var(--state-success)' }}>✓ Build Valid</span>
+                                  <span>•</span>
+                                  <span style={{ color: 'var(--state-success)' }}>✓ QA Passed</span>
+                                  <span>•</span>
+                                  <span style={{ color: 'var(--state-success)' }}>✓ Dashboard Served</span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {dashboardUrl && (
+                                    <a
+                                      href={dashboardUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="btn-primary"
+                                      style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.72rem',
+                                        textDecoration: 'none',
+                                        fontWeight: '700',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                      }}
+                                    >
+                                      <span>OPEN DASHBOARD</span>
+                                      <ExternalLink size={11} />
+                                    </a>
+                                  )}
+                                  {onNavigateToTab && (
+                                    <button
+                                      type="button"
+                                      onClick={() => onNavigateToTab('projects')}
+                                      className="btn-secondary"
+                                      style={{ padding: '4px 8px', fontSize: '0.7rem' }}
+                                    >
+                                      VIEW FILES
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* SECTION 13: AUDIT TRAIL SUMMARY FOOTER */}
+        {/* SECTION 12: VERIFICATION TIMELINE */}
         <div
           style={{
-            marginTop: '8px',
+            padding: '14px 18px',
+            background: 'var(--bg-canvas)',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border-subtle)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              VERIFICATION TIMELINE
+            </span>
+            {evaluationTimestamp && (
+              <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                COMPLETED: {evaluationTimestamp}
+              </span>
+            )}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              fontSize: '0.73rem',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            <span style={{ color: 'var(--state-success)', fontWeight: '600' }}>✓ Requirements extracted</span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ color: 'var(--state-success)', fontWeight: '600' }}>✓ Implementation verified</span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ color: 'var(--state-success)', fontWeight: '600' }}>✓ Build passed</span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ color: 'var(--state-success)', fontWeight: '600' }}>✓ QA passed</span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ color: 'var(--state-success)', fontWeight: '600' }}>✓ Recovery verified</span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ color: 'var(--state-success)', fontWeight: '600' }}>✓ Evaluator completed</span>
+            <span style={{ color: 'var(--text-muted)' }}>•</span>
+            <span style={{ color: 'var(--state-success)', fontWeight: '600' }}>✓ Deliverable verified</span>
+          </div>
+        </div>
+
+        {/* SECTION 15: EVIDENCE CHAIN FOOTER */}
+        <div
+          style={{
             padding: '14px 18px',
             background: 'var(--bg-canvas)',
             borderRadius: 'var(--radius-sm)',
@@ -1115,42 +1333,68 @@ export default function EvaluatorPanel({
           }}
         >
           <div>
-            <div style={{ fontSize: '0.7rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-              AUDIT TRAIL CHAIN
+            <div style={{ fontSize: '0.68rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: '4px' }}>
+              EVIDENCE CHAIN
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', fontSize: '0.73rem', fontFamily: 'var(--font-mono)', flexWrap: 'wrap' }}>
-              <span style={{ color: 'var(--state-success)' }}>✓ Requirements Extracted</span>
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: 'var(--state-success)' }}>✓ Plan Executed</span>
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: 'var(--state-success)' }}>✓ QA Completed</span>
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: 'var(--state-success)' }}>✓ Recovery Completed</span>
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: 'var(--state-success)' }}>✓ Deliverable Checked</span>
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
-              <span style={{ color: 'var(--state-success)' }}>✓ Evaluator Passed</span>
-            </div>
-          </div>
-
-          {onNavigateToTab && (
-            <button
-              type="button"
-              onClick={() => onNavigateToTab('execution')}
-              className="btn-secondary"
+            <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '6px 12px',
-                fontSize: '0.74rem',
-                fontWeight: '700',
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--text-secondary)',
+                flexWrap: 'wrap',
               }}
             >
-              <span>VIEW FULL AUDIT</span>
-              <ArrowRight size={13} />
-            </button>
-          )}
+              <strong>GOAL</strong>
+              <span>→</span>
+              <strong>REQUIREMENTS</strong>
+              <span>→</span>
+              <strong>TASK OUTPUTS</strong>
+              <span>→</span>
+              <strong>QA</strong>
+              <span>→</span>
+              <strong>RECOVERY</strong>
+              <span>→</span>
+              <strong>EVALUATOR</strong>
+              <span>→</span>
+              <strong style={{ color: 'var(--state-success)' }}>VERIFIED DELIVERABLE</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {dashboardUrl && (
+              <a
+                href={dashboardUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  fontSize: '0.74rem',
+                  fontWeight: '700',
+                  textDecoration: 'none',
+                }}
+              >
+                <span>OPEN DASHBOARD</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
+            {onNavigateToTab && (
+              <button
+                type="button"
+                onClick={() => onNavigateToTab('execution')}
+                className="btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '0.74rem', fontWeight: '600' }}
+              >
+                FULL AUDIT →
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

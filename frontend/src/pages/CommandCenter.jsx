@@ -530,7 +530,7 @@ export default function CommandCenter() {
               />
             </div>
 
-            {/* 9-POINT VERIFICATION AUDIT */}
+            {/* 9-POINT VERIFICATION CENTER */}
             <EvaluatorPanel
               requirements={requirements}
               evaluation={evaluation}
@@ -540,6 +540,7 @@ export default function CommandCenter() {
               events={events}
               artifacts={artifacts}
               onNavigateToTab={setActiveTab}
+              onSelectAgent={setSelectedAgentForDrawer}
             />
 
             {/* 3D FLOATING PRODUCT CARD & FINAL DELIVERABLE */}
