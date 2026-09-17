@@ -1,5 +1,6 @@
 """Data models, state definitions, and DAG validation for NEXUS."""
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
@@ -18,6 +19,32 @@ REQUIRED_REQUIREMENTS_KEYS = (
     "technical_requirements",
     "verification_requirements",
 )
+
+
+@dataclass
+class Event:
+    event_id: str
+    workflow_id: str
+    task_id: str | None
+    agent: str | None
+    event_type: str
+    message: str
+    status: str
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "event_id": self.event_id,
+            "workflow_id": self.workflow_id,
+            "task_id": self.task_id,
+            "agent": self.agent,
+            "event_type": self.event_type,
+            "message": self.message,
+            "status": self.status,
+            "timestamp": self.timestamp,
+        }
 
 
 @dataclass
@@ -61,6 +88,8 @@ class Workflow:
     updated_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+    evaluation: dict | None = None
+    artifacts: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -71,6 +100,8 @@ class Workflow:
             "status": self.status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "evaluation": self.evaluation,
+            "artifacts": list(self.artifacts),
         }
 
 

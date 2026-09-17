@@ -156,12 +156,17 @@ def _parse_and_validate_tasks(raw_json: str) -> list[Task]:
     return tasks
 
 
-def plan(requirements: dict) -> list[Task]:
+def plan(requirements: dict, prefer_deterministic: bool = False) -> list[Task]:
     """Generate a 5-to-8 task dependency-aware plan from structured requirements.
     
     Retries once on invalid model output.
     Falls back to the deterministic 8-task template if model output fails twice.
     """
+    import os
+    if prefer_deterministic or os.environ.get("NEXUS_DEMO_FAST", "").lower() in ("1", "true", "yes"):
+        logger.info("Using fast deterministic plan for demo execution.")
+        return _build_deterministic_fallback()
+
     req_json = json.dumps(requirements, indent=2)
     base_prompt = f"""You are an expert software project architect.
 Given the following structured project requirements, generate a dependency-aware plan of 5 to 8 tasks.
@@ -183,28 +188,32 @@ Requirements:
     system_instruction = "You are an orchestration planner that outputs strictly raw JSON arrays of 5 to 8 dependency-aware tasks."
 
     # Attempt 1
-    raw_response = model.generate_json(base_prompt, system=system_instruction)
     try:
-        return _parse_and_validate_tasks(raw_response)
-    except (json.JSONDecodeError, ValueError) as err:
-        logger.warning(
-            "Planner attempt 1 failed: %s. Raw model output:\n%s",
-            err,
-            raw_response,
-        )
+        raw_response = model.generate_json(base_prompt, system=system_instruction)
+        try:
+            return _parse_and_validate_tasks(raw_response)
+        except (json.JSONDecodeError, ValueError) as err:
+            logger.warning(
+                "Planner attempt 1 failed: %s. Raw model output:\n%s",
+                err,
+                raw_response,
+            )
 
-    # Attempt 2 (retry with corrective instruction)
-    retry_prompt = (
-        base_prompt
-        + "\n\nCRITICAL: Your previous response was invalid. Ensure you output a valid JSON array of exactly 5 to 8 tasks, with acyclic dependencies referencing only real earlier task IDs (T1..Tn). Respond with raw JSON ONLY."
-    )
-    raw_response_2 = model.generate_json(retry_prompt, system=system_instruction)
-    try:
-        return _parse_and_validate_tasks(raw_response_2)
-    except (json.JSONDecodeError, ValueError) as err:
-        logger.error(
-            "Planner attempt 2 failed: %s. Falling back to deterministic template. Raw model output:\n%s",
-            err,
-            raw_response_2,
+        # Attempt 2 (retry with corrective instruction)
+        retry_prompt = (
+            base_prompt
+            + "\n\nCRITICAL: Your previous response was invalid. Ensure you output a valid JSON array of exactly 5 to 8 tasks, with acyclic dependencies referencing only real earlier task IDs (T1..Tn). Respond with raw JSON ONLY."
         )
+        raw_response_2 = model.generate_json(retry_prompt, system=system_instruction)
+        try:
+            return _parse_and_validate_tasks(raw_response_2)
+        except (json.JSONDecodeError, ValueError) as err:
+            logger.error(
+                "Planner attempt 2 failed: %s. Falling back to deterministic template. Raw model output:\n%s",
+                err,
+                raw_response_2,
+            )
+            return _build_deterministic_fallback()
+    except model.ModelConnectionError as exc:
+        logger.warning("Ollama unreachable (%s). Using deterministic plan fallback for demo.", exc)
         return _build_deterministic_fallback()

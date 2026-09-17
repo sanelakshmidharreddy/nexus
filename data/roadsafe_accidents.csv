@@ -1,0 +1,31 @@
+accident_id,date,time,latitude,longitude,severity,casualties,vehicles_involved,weather_conditions,road_surface,light_conditions,location_name,contributing_factor
+ACC-2024-001,2024-01-04,08:32:00,37.7749,-122.4194,Moderate,2,2,Rain,Wet,Daylight,Market St & 5th Ave,Speeding on wet surface
+ACC-2024-002,2024-01-09,17:45:00,37.7833,-122.4167,Severe,3,3,Fog,Wet,Dusk,Mission St & 16th St,Failure to yield right-of-way
+ACC-2024-003,2024-01-15,23:14:00,37.8044,-122.2712,Fatal,1,1,Clear,Dry,Darkness,I-80 Eastbound Mile 12,Intoxication / lane departure
+ACC-2024-004,2024-01-22,07:15:00,37.7599,-122.4148,Minor,0,2,Rain,Wet,Daylight,Potrero Ave & 24th St,Following too closely
+ACC-2024-005,2024-02-03,14:20:00,37.7891,-122.4014,Moderate,1,2,Clear,Dry,Daylight,The Embarcadero & Howard St,Distracted driving (mobile)
+ACC-2024-006,2024-02-11,19:50:00,37.7649,-122.4664,Severe,2,2,Rain,Wet,Darkness,19th Ave & Winston Dr,Excessive speed in school zone
+ACC-2024-007,2024-02-18,12:05:00,37.7786,-122.3892,Minor,0,1,Clear,Dry,Daylight,3rd St & King St,Improper turning
+ACC-2024-008,2024-02-27,02:40:00,37.8080,-122.4177,Fatal,2,1,Fog,Wet,Darkness,Lombard St & Columbus Ave,High speed rollover
+ACC-2024-009,2024-03-05,09:12:00,37.7749,-122.4194,Moderate,1,2,Clear,Dry,Daylight,Market St & 5th Ave,Pedestrian crossing violation
+ACC-2024-010,2024-03-14,18:30:00,37.7833,-122.4167,Severe,4,3,Rain,Standing water,Dusk,Mission St & 16th St,Hydroplaning at intersection
+ACC-2024-011,2024-03-21,11:45:00,37.7312,-122.3888,Minor,0,2,Clear,Dry,Daylight,Bayshore Blvd & Paul Ave,Unsafe lane change
+ACC-2024-012,2024-03-29,21:10:00,37.8044,-122.2712,Fatal,1,2,Clear,Dry,Darkness,I-80 Eastbound Mile 12,Wrong-way driver
+ACC-2024-013,2024-04-06,08:50:00,37.7749,-122.4194,Moderate,2,2,Rain,Wet,Daylight,Market St & 5th Ave,Red light running
+ACC-2024-014,2024-04-13,16:15:00,37.7599,-122.4148,Minor,1,2,Clear,Dry,Daylight,Potrero Ave & 24th St,Rear-end collision
+ACC-2024-015,2024-04-22,22:05:00,37.7649,-122.4664,Severe,3,2,Fog,Wet,Darkness,19th Ave & Winston Dr,Poor visibility / speeding
+ACC-2024-016,2024-05-02,07:30:00,37.7833,-122.4167,Moderate,1,2,Clear,Dry,Daylight,Mission St & 16th St,Turning without signaling
+ACC-2024-017,2024-05-11,13:40:00,37.7891,-122.4014,Minor,0,2,Clear,Dry,Daylight,The Embarcadero & Howard St,Backing violation
+ACC-2024-018,2024-05-19,23:55:00,37.8044,-122.2712,Fatal,2,1,Clear,Dry,Darkness,I-80 Eastbound Mile 12,Fatigued driver rollover
+ACC-2024-019,2024-05-28,17:25:00,37.7749,-122.4194,Severe,2,3,Rain,Wet,Dusk,Market St & 5th Ave,Brake failure in wet conditions
+ACC-2024-020,2024-06-04,10:15:00,37.7312,-122.3888,Minor,0,2,Clear,Dry,Daylight,Bayshore Blvd & Paul Ave,Sideswipe collision
+ACC-2024-021,2024-06-12,20:45:00,37.7649,-122.4664,Moderate,1,2,Rain,Wet,Darkness,19th Ave & Winston Dr,Speed unsafe for conditions
+ACC-2024-022,2024-06-20,15:30:00,37.7599,-122.4148,Minor,1,1,Clear,Dry,Daylight,Potrero Ave & 24th St,Cyclist door collision
+ACC-2024-023,2024-06-29,01:15:00,37.8080,-122.4177,Fatal,1,1,Clear,Dry,Darkness,Lombard St & Columbus Ave,Struck fixed object (pole)
+ACC-2024-024,2024-07-08,08:20:00,37.7833,-122.4167,Moderate,2,2,Clear,Dry,Daylight,Mission St & 16th St,Distracted driving
+ACC-2024-025,2024-07-16,18:10:00,37.7749,-122.4194,Severe,3,2,Rain,Wet,Dusk,Market St & 5th Ave,Disregarded traffic signal
+ACC-2024-026,2024-07-25,12:00:00,37.7891,-122.4014,Minor,0,2,Clear,Dry,Daylight,The Embarcadero & Howard St,Failure to stop at stop sign
+ACC-2024-027,2024-08-03,22:30:00,37.8044,-122.2712,Fatal,3,3,Fog,Wet,Darkness,I-80 Eastbound Mile 12,Multi-vehicle pileup
+ACC-2024-028,2024-08-11,14:15:00,37.7649,-122.4664,Moderate,1,2,Clear,Dry,Daylight,19th Ave & Winston Dr,Tailgating
+ACC-2024-029,2024-08-19,19:40:00,37.7312,-122.3888,Severe,2,2,Clear,Dry,Dusk,Bayshore Blvd & Paul Ave,Speed competition
+ACC-2024-030,2024-08-28,09:05:00,37.7599,-122.4148,Minor,0,2,Clear,Dry,Daylight,Potrero Ave & 24th St,Inattention

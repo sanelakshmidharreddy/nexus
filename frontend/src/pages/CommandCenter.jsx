@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from '../components/Header';
 import GoalInput from '../components/GoalInput';
 import WorkflowGraph from '../components/WorkflowGraph';
@@ -8,14 +8,14 @@ import FailureRecoveryFlow from '../components/FailureRecoveryFlow';
 import ProjectFilesView from '../components/ProjectFilesView';
 import EvaluatorPanel from '../components/EvaluatorPanel';
 import FinalDeliverable from '../components/FinalDeliverable';
-import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw, Clock, CheckCircle } from 'lucide-react';
-
-const API_BASE = 'http://localhost:8000';
+import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function CommandCenter() {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'workflows' | 'agents' | 'execution' | 'projects'
 
   const [isOnline, setIsOnline] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('ONLINE'); // 'ONLINE' | 'DEGRADED' | 'OFFLINE'
   const [modelName, setModelName] = useState('qwen2.5:7b-instruct');
   const [latency, setLatency] = useState(null);
 
@@ -23,14 +23,19 @@ export default function CommandCenter() {
   const [workflowsList, setWorkflowsList] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [requirements, setRequirements] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [artifacts, setArtifacts] = useState([]);
+  const [evaluation, setEvaluation] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [logs, setLogs] = useState([
     { time: new Date().toLocaleTimeString(), type: 'info', message: 'NEXUS Command Center interface initialized.' },
-    { time: new Date().toLocaleTimeString(), type: 'info', message: 'Checking orchestrator backend at http://localhost:8000...' }
+    { time: new Date().toLocaleTimeString(), type: 'info', message: `Connected to orchestrator backend at ${API_BASE}...` }
   ]);
+
+  const lastEventCountRef = useRef(0);
 
   const addLog = (type, message) => {
     setLogs(prev => [...prev, {
@@ -49,13 +54,16 @@ export default function CommandCenter() {
       if (res.ok) {
         const data = await res.json();
         setIsOnline(true);
+        setConnectionStatus(data.model_reachable ? 'ONLINE' : 'DEGRADED');
         setModelName(data.model || 'qwen2.5:7b-instruct');
         setLatency(delta);
       } else {
         setIsOnline(false);
+        setConnectionStatus('OFFLINE');
       }
     } catch {
       setIsOnline(false);
+      setConnectionStatus('OFFLINE');
       setLatency(null);
     }
 
@@ -68,12 +76,7 @@ export default function CommandCenter() {
         // If no active workflow currently selected, select the latest one
         if (!activeWorkflow && wfList.length > 0) {
           const latest = wfList[0];
-          setActiveWorkflow(latest);
-          setRequirements(latest.requirements);
-          setTasks(latest.tasks || []);
-          if (latest.tasks && latest.tasks.length > 0) {
-            setSelectedTaskId(latest.tasks[0].task_id);
-          }
+          loadWorkflowData(latest);
         }
       }
     } catch {
@@ -81,24 +84,112 @@ export default function CommandCenter() {
     }
   };
 
+  const loadWorkflowData = async (wf) => {
+    setActiveWorkflow(wf);
+    setRequirements(wf.requirements);
+    setTasks(wf.tasks || []);
+    setEvaluation(wf.evaluation || null);
+    if (wf.tasks && wf.tasks.length > 0) {
+      setSelectedTaskId(wf.tasks[0].task_id);
+    }
+
+    // Fetch events and artifacts for this workflow
+    try {
+      const [evRes, artRes] = await Promise.all([
+        fetch(`${API_BASE}/workflows/${wf.workflow_id}/events`),
+        fetch(`${API_BASE}/workflows/${wf.workflow_id}/artifacts`)
+      ]);
+      if (evRes.ok) {
+        const evData = await evRes.json();
+        setEvents(evData);
+      }
+      if (artRes.ok) {
+        const artData = await artRes.json();
+        setArtifacts(artData);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Initial mount health check & periodic refresh
   useEffect(() => {
     checkHealthAndWorkflows();
-    const interval = setInterval(checkHealthAndWorkflows, 10000);
+    const interval = setInterval(checkHealthAndWorkflows, 8000);
     return () => clearInterval(interval);
   }, []);
 
+  // Real-time polling when active workflow is running
+  useEffect(() => {
+    if (!activeWorkflow) return;
+    const isRunning = ['planned', 'running', 'in_progress'].includes(activeWorkflow.status);
+    if (!isRunning) return;
+
+    const pollTimer = setInterval(async () => {
+      try {
+        const [wfRes, evRes, artRes] = await Promise.all([
+          fetch(`${API_BASE}/workflows/${activeWorkflow.workflow_id}`),
+          fetch(`${API_BASE}/workflows/${activeWorkflow.workflow_id}/events`),
+          fetch(`${API_BASE}/workflows/${activeWorkflow.workflow_id}/artifacts`)
+        ]);
+
+        if (wfRes.ok) {
+          const updatedWf = await wfRes.json();
+          setActiveWorkflow(updatedWf);
+          setTasks(updatedWf.tasks || []);
+          if (updatedWf.evaluation) {
+            setEvaluation(updatedWf.evaluation);
+          }
+        }
+
+        if (evRes.ok) {
+          const evData = await evRes.json();
+          setEvents(evData);
+
+          // Stream new events into live log window
+          if (evData.length > lastEventCountRef.current) {
+            const newEvents = evData.slice(lastEventCountRef.current);
+            newEvents.forEach(e => {
+              let logType = 'info';
+              if (e.event_type.includes('FAIL') || e.event_type.includes('ERROR')) logType = 'error';
+              else if (e.event_type.includes('REASSIGN') || e.event_type.includes('RETRY') || e.event_type.includes('DIAGNOS')) logType = 'warn';
+              else if (e.event_type.includes('PASS') || e.event_type.includes('EVALUAT') || e.event_type.includes('COMPLET')) logType = 'success';
+              else if (e.event_type.includes('START') || e.event_type.includes('FINISH')) logType = 'agent';
+              addLog(logType, `[${e.agent.toUpperCase()}] ${e.message}`);
+            });
+            lastEventCountRef.current = evData.length;
+          }
+        }
+
+        if (artRes.ok) {
+          const artData = await artRes.json();
+          setArtifacts(artData);
+        }
+      } catch {
+        // network blip
+      }
+    }, 1000);
+
+    return () => clearInterval(pollTimer);
+  }, [activeWorkflow?.workflow_id, activeWorkflow?.status]);
+
   // Submit Goal to Backend
-  const handleStartWorkflow = async (goalText) => {
+  const handleStartWorkflow = async (goalText, isDemo = false) => {
     setIsSubmitting(true);
     setError(null);
+    lastEventCountRef.current = 0;
     addLog('info', `Mission directive dispatched: "${goalText}"`);
-    addLog('info', 'Model requirements analyst extraction started (qwen2.5:7b-instruct)...');
+    addLog('info', `Topological planning initiated (Mode: ${isDemo ? 'RoadSafe Benchmark' : 'LLM Planner'})...`);
 
     try {
       const response = await fetch(`${API_BASE}/goals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal: goalText })
+        body: JSON.stringify({
+          goal: goalText,
+          auto_execute: true,
+          demo_mode: isDemo
+        })
       });
 
       if (!response.ok) {
@@ -110,34 +201,33 @@ export default function CommandCenter() {
       setActiveWorkflow(workflow);
       setRequirements(workflow.requirements);
       setTasks(workflow.tasks || []);
+      setEvents([]);
+      setArtifacts([]);
+      setEvaluation(null);
       if (workflow.tasks && workflow.tasks.length > 0) {
         setSelectedTaskId(workflow.tasks[0].task_id);
       }
 
       addLog('success', `Requirements verified: ${workflow.requirements?.objective || 'Objective parsed'}`);
-      addLog('success', `Topological DAG task plan generated: ${workflow.tasks?.length || 0} tasks planned`);
+      addLog('success', `DAG task plan generated: ${workflow.tasks?.length || 0} tasks planned`);
       workflow.tasks?.forEach(t => {
         addLog('agent', `Task ${t.task_id} assigned to ${t.assigned_agent.toUpperCase()} agent: "${t.title}"`);
       });
 
-      // Refresh workflows list
+      // Refresh list
       checkHealthAndWorkflows();
 
     } catch (err) {
-      setError(err.message || 'Failed to dispatch workflow to backend');
-      addLog('error', `Workflow dispatch failed: ${err.message}`);
+      const msg = err.message || 'Failed to dispatch workflow to backend';
+      setError(msg);
+      addLog('error', `Workflow dispatch failed: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleSelectPastWorkflow = (wf) => {
-    setActiveWorkflow(wf);
-    setRequirements(wf.requirements);
-    setTasks(wf.tasks || []);
-    if (wf.tasks && wf.tasks.length > 0) {
-      setSelectedTaskId(wf.tasks[0].task_id);
-    }
+    loadWorkflowData(wf);
     addLog('info', `Loaded persisted workflow ${wf.workflow_id}`);
     setActiveTab('overview');
   };
@@ -146,11 +236,18 @@ export default function CommandCenter() {
     addLog(step === 1 ? 'error' : step === 2 || step === 4 ? 'warn' : 'success', `[ADAPTIVE RECOVERY] ${msg}`);
   };
 
+  const isVerified = Boolean(
+    activeWorkflow?.status === 'completed' ||
+    evaluation?.status === 'passed' ||
+    (tasks.length > 0 && tasks.every(t => t.status === 'success'))
+  );
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
       {/* Top Application Header */}
       <Header
         isOnline={isOnline}
+        connectionStatus={connectionStatus}
         modelName={modelName}
         latency={latency}
         apiUrl={API_BASE}
@@ -226,8 +323,13 @@ export default function CommandCenter() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           <span>WORKFLOW ID:</span>
           <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
-            {activeWorkflow ? activeWorkflow.workflow_id.slice(0, 10) + '...' : 'Awaiting initialization'}
+            {activeWorkflow ? activeWorkflow.workflow_id.slice(0, 12) + '...' : 'Awaiting initialization'}
           </span>
+          {activeWorkflow && (
+            <span className={`badge badge-${activeWorkflow.status === 'completed' ? 'success' : activeWorkflow.status === 'running' ? 'running' : 'pending'}`}>
+              {activeWorkflow.status.toUpperCase()}
+            </span>
+          )}
         </div>
       </div>
 
@@ -252,6 +354,7 @@ export default function CommandCenter() {
               error={error}
               activeGoal={activeWorkflow?.original_goal}
               requirements={requirements}
+              isOnline={isOnline}
             />
 
             {/* 2. Workflow Graph */}
@@ -265,7 +368,10 @@ export default function CommandCenter() {
             <AgentPanel tasks={tasks} />
 
             {/* 4. Adaptive Orchestration / Self-Healing Recovery Loop */}
-            <FailureRecoveryFlow onTriggerRecoveryLog={handleTriggerRecoveryLog} />
+            <FailureRecoveryFlow
+              events={events}
+              onTriggerRecoveryLog={handleTriggerRecoveryLog}
+            />
 
             {/* 5. Live Execution Log & File Activity */}
             <div style={{
@@ -274,21 +380,26 @@ export default function CommandCenter() {
               gap: '20px',
             }}>
               <ExecutionLog logs={logs} />
-              <ProjectFilesView />
+              <ProjectFilesView
+                artifacts={artifacts}
+                workflowId={activeWorkflow?.workflow_id}
+              />
             </div>
 
             {/* 6. Evaluator Verification Panel */}
             <EvaluatorPanel
               requirements={requirements}
-              isVerified={tasks.length > 0}
+              evaluation={evaluation}
+              isVerified={isVerified}
             />
 
             {/* 7. Final Deliverable */}
             <FinalDeliverable
               tasks={tasks}
-              isVerified={tasks.length > 0}
+              isVerified={isVerified}
               workflowId={activeWorkflow?.workflow_id}
               requirements={requirements}
+              evaluation={evaluation}
             />
           </>
         )}
@@ -320,6 +431,7 @@ export default function CommandCenter() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {workflowsList.map((wf) => {
                     const isSelected = activeWorkflow?.workflow_id === wf.workflow_id;
+                    const isDone = wf.status === 'completed';
                     return (
                       <div
                         key={wf.workflow_id}
@@ -341,9 +453,14 @@ export default function CommandCenter() {
                             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '700', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
                               {wf.workflow_id.slice(0, 12)}
                             </span>
-                            <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                            <span className={`badge badge-${isDone ? 'success' : wf.status === 'running' ? 'running' : 'pending'}`} style={{ fontSize: '0.65rem' }}>
                               {wf.status.toUpperCase()}
                             </span>
+                            {wf.evaluation && (
+                              <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
+                                SCORE: {wf.evaluation.score}/100
+                              </span>
+                            )}
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                               • {new Date(wf.created_at).toLocaleString()}
                             </span>
@@ -385,7 +502,10 @@ export default function CommandCenter() {
         {/* TAB 4: EXECUTION & ADAPTIVE RECOVERY */}
         {activeTab === 'execution' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <FailureRecoveryFlow onTriggerRecoveryLog={handleTriggerRecoveryLog} />
+            <FailureRecoveryFlow
+              events={events}
+              onTriggerRecoveryLog={handleTriggerRecoveryLog}
+            />
             <ExecutionLog logs={logs} />
           </div>
         )}
@@ -393,12 +513,16 @@ export default function CommandCenter() {
         {/* TAB 5: PROJECTS & DELIVERABLE */}
         {activeTab === 'projects' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <ProjectFilesView />
+            <ProjectFilesView
+              artifacts={artifacts}
+              workflowId={activeWorkflow?.workflow_id}
+            />
             <FinalDeliverable
               tasks={tasks}
-              isVerified={tasks.length > 0}
+              isVerified={isVerified}
               workflowId={activeWorkflow?.workflow_id}
               requirements={requirements}
+              evaluation={evaluation}
             />
           </div>
         )}
@@ -415,9 +539,11 @@ export default function CommandCenter() {
         fontSize: '0.72rem',
         color: 'var(--text-muted)',
         fontFamily: 'var(--font-mono)',
+        flexWrap: 'wrap',
+        gap: '8px',
       }}>
         <div>NEXUS AI Agent Orchestrator — Autonomous Multi-Agent Command Center</div>
-        <div>FastAPI Backend: http://localhost:8000 | Vite Frontend: Active</div>
+        <div>FastAPI Backend: {API_BASE} | Live DAG Engine: Operational</div>
       </footer>
     </div>
   );

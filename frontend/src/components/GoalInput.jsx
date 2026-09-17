@@ -1,23 +1,23 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, AlertCircle, Sparkles, CheckCircle2, ListChecks } from 'lucide-react';
+import { ArrowRight, Check, AlertCircle, Play, CheckCircle2, ListChecks, Sparkles } from 'lucide-react';
 
-export default function GoalInput({ onStartWorkflow, isSubmitting, error, activeGoal, requirements }) {
-  const defaultGoalText = "Build a RoadSafe-style accident analytics dashboard from this dataset.";
+export default function GoalInput({ onStartWorkflow, isSubmitting, error, activeGoal, requirements, isOnline }) {
+  const defaultGoalText = "Build a RoadSafe accident analytics dashboard with interactive hotspots, casualty metrics, and Vision Zero recommendations.";
   const [goal, setGoal] = useState(activeGoal || defaultGoalText);
 
   const presets = [
     {
-      title: "RoadSafe Accident Analytics Dashboard",
-      text: "Build a RoadSafe-style accident analytics dashboard from this dataset.",
-      badge: "Hackathon Preset"
+      title: "RoadSafe Analytics Dashboard",
+      text: "Build a RoadSafe accident analytics dashboard with interactive hotspots, casualty metrics, and Vision Zero recommendations.",
+      badge: "Hackathon Benchmark"
     },
     {
-      title: "Vision Zero Highway Hotspots",
+      title: "Vision Zero High-Risk Hotspots",
       text: "Create a Vision Zero accident hotspot analyzer with collision severity clustering and mitigation recommendations.",
       badge: "Geospatial"
     },
     {
-      title: "Traffic Risk & Casualty Predictor",
+      title: "Casualty & Weather Correlation",
       text: "Develop an accident causation risk-factor engine with temporal trends and weather correlation reports.",
       badge: "Analytics"
     }
@@ -26,10 +26,14 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!goal.trim() || isSubmitting) return;
-    onStartWorkflow(goal.trim());
+    onStartWorkflow(goal.trim(), false);
   };
 
-  // Extract checklist items from requirements
+  const handleRunDemo = () => {
+    if (isSubmitting) return;
+    onStartWorkflow(defaultGoalText, true);
+  };
+
   const getRequirementsChecklist = () => {
     if (!requirements) return [];
     const items = [];
@@ -59,23 +63,47 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
         <div className="panel-title">
           <span>Command Center Directive</span>
         </div>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-          STEP 1 • GOAL & SPECIFICATION
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+            STEP 1 • GOAL & SPECIFICATION
+          </span>
+        </div>
       </div>
 
       <div className="panel-body">
         <form onSubmit={handleSubmit}>
-          <label style={{
-            display: 'block',
-            fontSize: '1.05rem',
-            fontWeight: '600',
-            color: 'var(--text-primary)',
-            marginBottom: '8px',
-            letterSpacing: '-0.01em',
-          }}>
-            What do you want NEXUS to build?
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+            <label style={{
+              fontSize: '1.05rem',
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.01em',
+            }}>
+              What do you want NEXUS to build?
+            </label>
+
+            {/* Quick Demo Launch Button */}
+            <button
+              type="button"
+              onClick={handleRunDemo}
+              disabled={isSubmitting}
+              className="btn-primary"
+              style={{
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                borderColor: '#0f172a',
+                padding: '6px 14px',
+                fontSize: '0.8rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                boxShadow: '0 2px 4px rgba(15, 23, 42, 0.15)',
+              }}
+              title="Execute full autonomous RoadSafe workflow with controlled failure injection and self-healing recovery"
+            >
+              <Sparkles size={14} color="#f59e0b" />
+              <span>RUN LIVE DEMO WORKFLOW</span>
+            </button>
+          </div>
 
           <div style={{ position: 'relative', marginBottom: '12px' }}>
             <textarea
@@ -169,7 +197,7 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
           }}>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="status-dot status-dot-running" />
-              <span>NEXUS automatically extracts requirements, builds a DAG task plan, and assigns specialist agents.</span>
+              <span>NEXUS extracts requirements, builds a topological DAG plan, and executes specialist agents autonomously.</span>
             </div>
 
             <button
@@ -185,7 +213,7 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
                 </>
               ) : (
                 <>
-                  <span>Start Workflow</span>
+                  <span>Dispatch Custom Goal</span>
                   <ArrowRight size={14} />
                 </>
               )}
@@ -212,7 +240,7 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
           </div>
         )}
 
-        {/* Section 8: Structured Requirements Panel */}
+        {/* Structured Requirements Panel */}
         {requirements && (
           <div style={{
             marginTop: '20px',

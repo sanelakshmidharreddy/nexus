@@ -1,7 +1,41 @@
 import React from 'react';
-import { ExternalLink, Terminal, Cpu } from 'lucide-react';
+import { ExternalLink, Terminal, Cpu, Server, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 
-export default function Header({ isOnline, modelName, latency, apiUrl }) {
+export default function Header({ isOnline, connectionStatus = 'ONLINE', modelName, latency, apiUrl, modelMode }) {
+  const getStatusDisplay = () => {
+    if (!isOnline || connectionStatus === 'OFFLINE') {
+      return {
+        label: 'BACKEND OFFLINE',
+        dotClass: 'status-dot-failure',
+        bg: 'var(--state-failure-bg)',
+        border: 'var(--state-failure-border)',
+        text: 'var(--state-failure-text)',
+        icon: WifiOff
+      };
+    }
+    if (connectionStatus === 'DEGRADED') {
+      return {
+        label: 'DEMO MODE (FALLBACK)',
+        dotClass: 'status-dot-running',
+        bg: 'var(--state-warning-bg)',
+        border: 'var(--state-warning-border)',
+        text: 'var(--state-warning-text)',
+        icon: AlertCircle
+      };
+    }
+    return {
+      label: 'SYSTEM ONLINE',
+      dotClass: 'status-dot-success',
+      bg: 'var(--state-success-bg)',
+      border: 'var(--state-success-border)',
+      text: 'var(--state-success-text)',
+      icon: Wifi
+    };
+  };
+
+  const status = getStatusDisplay();
+  const StatusIcon = status.icon;
+
   return (
     <header style={{
       display: 'flex',
@@ -43,7 +77,7 @@ export default function Header({ isOnline, modelName, latency, apiUrl }) {
       </div>
 
       {/* Telemetry & System Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
         {/* Backend Online Status Indicator */}
         <div style={{
           display: 'flex',
@@ -51,21 +85,21 @@ export default function Header({ isOnline, modelName, latency, apiUrl }) {
           gap: '7px',
           padding: '4px 10px',
           borderRadius: 'var(--radius-xs)',
-          background: isOnline ? 'var(--state-success-bg)' : 'var(--state-failure-bg)',
-          border: `1px solid ${isOnline ? 'var(--state-success-border)' : 'var(--state-failure-border)'}`,
+          background: status.bg,
+          border: `1px solid ${status.border}`,
         }}>
-          <span className={`status-dot ${isOnline ? 'status-dot-success' : 'status-dot-failure'}`} />
+          <span className={`status-dot ${status.dotClass}`} />
           <span style={{
             fontSize: '0.72rem',
             fontWeight: '700',
             fontFamily: 'var(--font-mono)',
-            color: isOnline ? 'var(--state-success-text)' : 'var(--state-failure-text)',
+            color: status.text,
             letterSpacing: '0.04em',
           }}>
-            {isOnline ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'}
+            {status.label}
           </span>
           {latency !== null && isOnline && (
-            <span style={{ fontSize: '0.7rem', color: 'var(--state-success-text)', fontFamily: 'var(--font-mono)', opacity: 0.8 }}>
+            <span style={{ fontSize: '0.7rem', color: status.text, fontFamily: 'var(--font-mono)', opacity: 0.8 }}>
               • {latency}ms
             </span>
           )}
@@ -88,6 +122,26 @@ export default function Header({ isOnline, modelName, latency, apiUrl }) {
           <span style={{ color: 'var(--text-muted)' }}>MODEL:</span>
           <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
             {modelName || 'qwen2.5:7b-instruct'}
+          </span>
+        </div>
+
+        {/* API Host Badge */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 10px',
+          borderRadius: 'var(--radius-xs)',
+          background: 'var(--bg-surface-secondary)',
+          border: '1px solid var(--border-subtle)',
+          fontSize: '0.72rem',
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--text-secondary)',
+        }}>
+          <Server size={13} style={{ color: 'var(--text-muted)' }} />
+          <span style={{ color: 'var(--text-muted)' }}>API:</span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: '600', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {apiUrl ? apiUrl.replace(/^https?:\/\//, '') : 'localhost:8000'}
           </span>
         </div>
 

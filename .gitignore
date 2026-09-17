@@ -37,5 +37,8 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
-Thumbs.db
 *.log
+
+# Generated workspace outputs
+workspace/generated_projects/*
+!workspace/generated_projects/.gitkeep

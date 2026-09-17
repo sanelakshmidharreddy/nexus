@@ -43,8 +43,9 @@ def generate_json(prompt: str, system: str = "") -> str:
     if system:
         payload["system"] = system
 
+    timeout = int(os.environ.get("OLLAMA_TIMEOUT", "15"))
     try:
-        response = requests.post(url, json=payload, timeout=120)
+        response = requests.post(url, json=payload, timeout=timeout)
         response.raise_for_status()
         data = response.json()
         return data.get("response", "")

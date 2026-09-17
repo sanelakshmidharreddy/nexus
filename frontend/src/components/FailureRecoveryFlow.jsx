@@ -1,9 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShieldAlert, Play, Check, AlertTriangle, ArrowRight, RefreshCw, Cpu, Activity } from 'lucide-react';
 
-export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
+export default function FailureRecoveryFlow({ events = [], onTriggerRecoveryLog }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSimulating, setIsSimulating] = useState(false);
+
+  // Derive recovery step from real backend events
+  useEffect(() => {
+    if (!events || events.length === 0) return;
+
+    const eventTypes = events.map(e => e.event_type);
+
+    if (eventTypes.includes('QA_PASSED')) {
+      setCurrentStep(7);
+    } else if (eventTypes.includes('QA_RETRY')) {
+      setCurrentStep(6);
+    } else if (eventTypes.includes('PATCH_APPLIED')) {
+      setCurrentStep(5);
+    } else if (eventTypes.includes('TASK_REASSIGNED')) {
+      setCurrentStep(4);
+    } else if (eventTypes.includes('ROOT_CAUSE_IDENTIFIED')) {
+      setCurrentStep(2);
+    } else if (eventTypes.includes('QA_FAILED')) {
+      setCurrentStep(1);
+    }
+  }, [events]);
+
+  // Extract real error & patch details if available in events
+  const qaFailEvent = events.find(e => e.event_type === 'QA_FAILED');
+  const rootCauseEvent = events.find(e => e.event_type === 'ROOT_CAUSE_IDENTIFIED');
+  const patchEvent = events.find(e => e.event_type === 'PATCH_APPLIED');
 
   const recoveryStages = [
     {
@@ -12,7 +38,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
       badge: "FAULT DETECTED",
       badgeType: "failed",
       desc: "QA Agent intercepts test failure during build verification.",
-      detail: "Error: KeyError: 'latitude' schema field missing coordinate index",
+      detail: qaFailEvent ? qaFailEvent.message : "Error: KeyError: 'latitude' schema field missing coordinate index",
     },
     {
       step: 2,
@@ -20,7 +46,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
       badge: "DIAGNOSIS",
       badgeType: "retrying",
       desc: "NEXUS Orchestrator analyzes error stacktrace against original Goal requirements.",
-      detail: "Root Cause: Coordinate normalization transform bypassed in Data pipeline",
+      detail: rootCauseEvent ? rootCauseEvent.message : "Root Cause: Coordinate normalization transform omitted in Developer pass 1",
     },
     {
       step: 3,
@@ -28,7 +54,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
       badge: "DECISION",
       badgeType: "running",
       desc: "Orchestrator determines self-healing strategy: Reassign & Patch with constraints.",
-      detail: "Decision: Regenerate transformation layer with explicit Lat/Long normalization",
+      detail: "Decision: Regenerate transformation layer with explicit coordinates mapping",
     },
     {
       step: 4,
@@ -36,7 +62,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
       badge: "REASSIGNMENT",
       badgeType: "running",
       desc: "Developer Agent dispatched with corrective prompt and failure context.",
-      detail: "Task T2 retry_count incremented (0 → 1); constraint prompt applied",
+      detail: "Developer Agent re-assigned to T5 with strict coordinate schema constraint",
     },
     {
       step: 5,
@@ -44,7 +70,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
       badge: "PATCH APPLIED",
       badgeType: "retrying",
       desc: "Developer Agent refactors data transformer and updates output bundle.",
-      detail: "Patch: roadsafe_loader.py updated with robust fallback normalization",
+      detail: patchEvent ? patchEvent.message : "Patch: app.js & data.json updated with validated coordinates",
     },
     {
       step: 6,
@@ -52,7 +78,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
       badge: "BUILD RETRY",
       badgeType: "running",
       desc: "QA re-executes test suite on patched deliverable in sandbox.",
-      detail: "Executing test suite: 18/18 test cases passing cleanly",
+      detail: "Executing test suite: Schema validation & file integrity checks passing",
     },
     {
       step: 7,
@@ -60,7 +86,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
       badge: "RECOVERED",
       badgeType: "success",
       desc: "Deliverable verified intact. Workflow transitions to Evaluator Agent.",
-      detail: "Zero compilation errors, clean build verified",
+      detail: "Zero compilation errors, clean build verified by QA & Evaluator",
     },
   ];
 
@@ -74,9 +100,9 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
 
     const delays = [
       { step: 2, delay: 1000, msg: "NEXUS diagnosing root cause from execution stacktrace..." },
-      { step: 3, delay: 2000, msg: "Orchestrator Decision: Reassign Task T2 to Developer Agent with coordinate constraint" },
-      { step: 4, delay: 3000, msg: "Adaptive Retry: Task T2 retry_count incremented to 1; Developer Agent starting patch" },
-      { step: 5, delay: 4200, msg: "Developer Agent applied patch to roadsafe_loader.py" },
+      { step: 3, delay: 2000, msg: "Orchestrator Decision: Reassign Task T5 to Developer Agent with coordinate constraint" },
+      { step: 4, delay: 3000, msg: "Adaptive Retry: Developer Agent starting patch with coordinate validation" },
+      { step: 5, delay: 4200, msg: "Developer Agent applied patch to app.js and data.json" },
       { step: 6, delay: 5400, msg: "QA Agent re-running build verification suite..." },
       { step: 7, delay: 6600, msg: "Build Passed cleanly. Adaptive recovery loop complete: SUCCESS verified!" },
     ];
@@ -119,7 +145,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
             ) : (
               <>
                 <Play size={11} />
-                <span>Simulate Recovery Loop</span>
+                <span>Replay Recovery Flow</span>
               </>
             )}
           </button>
@@ -141,7 +167,7 @@ export default function FailureRecoveryFlow({ onTriggerRecoveryLog }) {
           gap: '8px',
         }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            <strong style={{ color: 'var(--text-primary)' }}>NEXUS Adaptive Loop:</strong> Unlike linear pipelines, NEXUS intercepts runtime exceptions, performs autonomous root-cause diagnosis, formulates corrective reassignments, and recovers autonomously.
+            <strong style={{ color: 'var(--text-primary)' }}>NEXUS Adaptive Loop:</strong> When QA detects a defect, the orchestrator diagnoses the root cause, formulates an adaptive patch strategy, reassigns the task with strict constraints, and re-verifies.
           </div>
           <div style={{
             fontSize: '0.72rem',

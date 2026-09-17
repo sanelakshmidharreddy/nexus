@@ -1,1 +1,21 @@
-"""File/dir operations and sandboxed command execution, restricted to workspace/generated_projects/ — implemented in Phase 3."""
+"""Sandboxed workspace tools restricted to workspace/generated_projects/<workflow_id>/."""
+
+from backend.tools.workspace_tools import (
+    get_sandbox_dir,
+    read_file,
+    write_file,
+    edit_file,
+    list_directory,
+    run_command,
+    ToolSecurityError,
+)
+
+__all__ = [
+    "get_sandbox_dir",
+    "read_file",
+    "write_file",
+    "edit_file",
+    "list_directory",
+    "run_command",
+    "ToolSecurityError",
+]
