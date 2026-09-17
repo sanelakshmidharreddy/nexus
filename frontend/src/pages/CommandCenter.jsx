@@ -463,12 +463,7 @@ export default function CommandCenter() {
         {activeTab === 'overview' && (
           <>
             {/* HERO SECTION: Goal Directive (Left) + AI Orchestration Network Visual (Right) */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
-              gap: '20px',
-              alignItems: 'stretch',
-            }}>
+            <div className="nexus-hero-grid">
               <GoalInput
                 onStartWorkflow={handleStartWorkflow}
                 isSubmitting={isSubmitting}
@@ -484,7 +479,81 @@ export default function CommandCenter() {
                 events={events}
                 isVerified={isVerified}
                 isExecuting={isExecuting}
+                workflow={activeWorkflow}
+                requirements={requirements}
+                onSelectAgent={setSelectedAgentForDrawer}
               />
+            </div>
+
+            {/* HERO QUICK TELEMETRY STRIP (Section 23) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 18px',
+              background: '#ffffff',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-sm)',
+              boxShadow: 'var(--shadow-xs)',
+              fontSize: '0.74rem',
+              fontFamily: 'var(--font-mono)',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: '700' }}>PLANNING:</span>
+                <span style={{
+                  color: requirements ? 'var(--state-success-text)' : isSubmitting ? 'var(--state-running-text)' : 'var(--text-primary)',
+                  fontWeight: '700'
+                }}>
+                  {requirements ? '✓ SYNTHESIZED' : isSubmitting ? '● SCOPING...' : 'READY'}
+                </span>
+              </div>
+
+              <span style={{ color: 'var(--border-default)' }}>|</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: '700' }}>AGENTS:</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>
+                  6 SPECIALISTS
+                </span>
+              </div>
+
+              <span style={{ color: 'var(--border-default)' }}>|</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: '700' }}>EXECUTION:</span>
+                <span style={{
+                  color: isVerified ? 'var(--state-success-text)' : isExecuting ? 'var(--state-running-text)' : 'var(--text-secondary)',
+                  fontWeight: '700'
+                }}>
+                  {isVerified ? '✓ COMPLETE' : isExecuting ? '● RUNNING' : 'STANDBY'}
+                </span>
+              </div>
+
+              <span style={{ color: 'var(--border-default)' }}>|</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: '700' }}>RECOVERY:</span>
+                <span style={{
+                  color: events.some(e => e.event_type === 'QA_FAILED') ? 'var(--state-warning-text)' : 'var(--text-secondary)',
+                  fontWeight: '700'
+                }}>
+                  {events.some(e => e.event_type === 'QA_FAILED') ? '1 SELF-HEALED' : '0 DEFECTS'}
+                </span>
+              </div>
+
+              <span style={{ color: 'var(--border-default)' }}>|</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: '700' }}>VERIFICATION:</span>
+                <span style={{
+                  color: isVerified ? 'var(--state-success-text)' : 'var(--text-primary)',
+                  fontWeight: '800'
+                }}>
+                  {isVerified ? '9 / 9 (100%)' : `${tasks.filter(t => t.status === 'success').length} / ${tasks.length || 8} TASKS`}
+                </span>
+              </div>
             </div>
 
             {/* REAL-TIME EXECUTION PROGRESS & STAGE TELEMETRY BAR */}

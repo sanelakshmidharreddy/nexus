@@ -95,7 +95,7 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
   };
 
   return (
-    <div className="panel" style={{ background: '#ffffff' }}>
+    <div className="panel" style={{ background: '#ffffff', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="panel-header">
         <div className="panel-title">
           <Zap size={15} style={{ color: 'var(--text-muted)' }} />
@@ -108,7 +108,7 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
         </div>
       </div>
 
-      <div className="panel-body">
+      <div className="panel-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
             <label style={{

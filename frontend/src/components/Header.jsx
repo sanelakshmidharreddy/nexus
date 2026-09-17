@@ -102,24 +102,25 @@ export default function Header({ isOnline, connectionStatus = 'ONLINE', modelNam
       gap: '12px',
     }}>
       {/* Brand Identity & Core Value Statement */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <NexusLogoMark size={28} isExecuting={isExecuting} isVerified={isVerified} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <NexusLogoMark size={34} isExecuting={isExecuting} isVerified={isVerified} />
 
         <div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
             <span style={{
-              fontSize: '1.25rem',
-              fontWeight: '800',
+              fontSize: '1.75rem', /* 28px */
+              fontWeight: '900',
               letterSpacing: '0.04em',
               color: 'var(--text-primary)',
               fontFamily: 'var(--font-sans)',
+              lineHeight: 1.1,
             }}>
               NEXUS
             </span>
             <span style={{
-              fontSize: '0.72rem',
-              fontWeight: '700',
-              letterSpacing: '0.08em',
+              fontSize: '0.74rem',
+              fontWeight: '800',
+              letterSpacing: '0.1em',
               color: 'var(--text-muted)',
               fontFamily: 'var(--font-mono)',
               textTransform: 'uppercase',
@@ -128,12 +129,12 @@ export default function Header({ isOnline, connectionStatus = 'ONLINE', modelNam
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '1px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
               From one goal to a verified outcome.
             </span>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'none', lgDisplay: 'inline' }}>
-              • Autonomous planning, multi-agent execution, adaptive recovery & verification.
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              • Plan. Delegate. Execute. Recover. Verify.
             </span>
           </div>
         </div>
