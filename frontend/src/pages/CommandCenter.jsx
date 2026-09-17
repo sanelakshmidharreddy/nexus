@@ -18,11 +18,25 @@ import CompactRecoveryCard from '../components/CompactRecoveryCard';
 import RecoveryCenterView from '../components/RecoveryCenterView';
 import ExecutionView from '../components/ExecutionView';
 import FullAgentView from '../components/FullAgentView';
+import BackButton from '../components/BackButton';
+import { useNavigation } from '../context/NavigationContext';
 import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw, ShieldAlert } from 'lucide-react';
 import { API_BASE } from '../config';
 
 export default function CommandCenter() {
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'workflows' | 'agents' | 'execution' | 'recovery' | 'projects' | 'agent_full'
+  const {
+    currentTab: activeTab,
+    currentAgentId: fullViewAgentId,
+    drawerAgentId: selectedAgentForDrawer,
+    setDrawerAgentId: setSelectedAgentForDrawer,
+    navigateTo,
+    goBack,
+    getViewTitle,
+    setCurrentWorkflowId,
+  } = useNavigation();
+
+  const setActiveTab = (tab) => navigateTo(tab);
+  const setFullViewAgentId = (agentId) => navigateTo('agent_full', { agentId });
 
   const [isOnline, setIsOnline] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('ONLINE'); // 'ONLINE' | 'DEGRADED' | 'OFFLINE'
@@ -42,8 +56,6 @@ export default function CommandCenter() {
   const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
   const [launchGoalText, setLaunchGoalText] = useState('');
   const [isLaunchBenchmark, setIsLaunchBenchmark] = useState(false);
-  const [selectedAgentForDrawer, setSelectedAgentForDrawer] = useState(null);
-  const [fullViewAgentId, setFullViewAgentId] = useState('research');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -100,6 +112,7 @@ export default function CommandCenter() {
 
   const loadWorkflowData = async (wf) => {
     setActiveWorkflow(wf);
+    setCurrentWorkflowId(wf.workflow_id);
     setRequirements(wf.requirements);
     setTasks(wf.tasks || []);
     setEvaluation(wf.evaluation || null);
@@ -129,25 +142,6 @@ export default function CommandCenter() {
     checkHealthAndWorkflows();
     const interval = setInterval(checkHealthAndWorkflows, 8000);
     return () => clearInterval(interval);
-  }, []);
-
-  // URL routing for /agents/<agentId>/<workflowId> (Section 21 & 22)
-  useEffect(() => {
-    const handleLocationChange = () => {
-      const path = window.location.pathname;
-      if (path.startsWith('/agents/')) {
-        const parts = path.split('/').filter(Boolean);
-        // parts = ['agents', agentId, workflowId]
-        if (parts[1]) {
-          setFullViewAgentId(parts[1].toLowerCase());
-          setActiveTab('agent_full');
-        }
-      }
-    };
-
-    handleLocationChange();
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
   // Real-time polling when active workflow is running
@@ -278,17 +272,9 @@ export default function CommandCenter() {
     return (
       <FullAgentView
         agentId={fullViewAgentId}
-        onBack={() => {
-          setActiveTab('overview');
-          if (window.history && window.history.pushState) {
-            window.history.pushState(null, '', '/');
-          }
-        }}
+        onBack={() => goBack('agents')}
         onSelectAgent={(id) => {
-          setFullViewAgentId(id);
-          if (window.history && window.history.pushState) {
-            window.history.pushState(null, '', `/agents/${id}/${activeWorkflow?.workflow_id || 'active'}`);
-          }
+          navigateTo('agent_full', { agentId: id });
         }}
         tasks={tasks}
         requirements={requirements}
@@ -447,6 +433,37 @@ export default function CommandCenter() {
         isVerified={isVerified}
         onNavigateToExecution={() => setActiveTab('execution')}
       />
+
+      {/* Global Secondary Navigation Bar (Requirement 2, 3, 4) */}
+      {activeTab !== 'overview' && (
+        <div className="nexus-secondary-navbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <BackButton label="Back" fallbackTab="overview" />
+            <div style={{ height: '18px', width: '1px', background: 'var(--border-subtle)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>NEXUS</span>
+              <span style={{ color: 'var(--border-strong)' }}>/</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: '700' }}>
+                {getViewTitle(activeTab, fullViewAgentId)}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{
+              fontSize: '0.7rem',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)',
+              background: 'var(--bg-surface-secondary)',
+              padding: '3px 8px',
+              borderRadius: '4px',
+              border: '1px solid var(--border-subtle)',
+            }}>
+              ROUTE: {window.location.pathname}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Main Container */}
       <main style={{
@@ -774,12 +791,8 @@ export default function CommandCenter() {
         isOpen={Boolean(selectedAgentForDrawer)}
         onClose={() => setSelectedAgentForDrawer(null)}
         onOpenFullView={(agentId) => {
-          setFullViewAgentId(agentId);
           setSelectedAgentForDrawer(null);
-          setActiveTab('agent_full');
-          if (window.history && window.history.pushState) {
-            window.history.pushState(null, '', `/agents/${agentId}/${activeWorkflow?.workflow_id || 'active'}`);
-          }
+          navigateTo('agent_full', { agentId });
         }}
         tasks={tasks}
         requirements={requirements}

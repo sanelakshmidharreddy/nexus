@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Check, ExternalLink, BarChart3, MapPin, Eye, X, FileText, Sparkles, Layers, Activity, AlertTriangle } from 'lucide-react';
 import { API_BASE } from '../config';
+import BackButton from './BackButton';
 
 export default function FinalDeliverable({ tasks = [], isVerified = false, workflowId, requirements, evaluation, onSwitchToTab }) {
   const [showDashboardModal, setShowDashboardModal] = useState(false);
@@ -524,6 +525,12 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BackButton
+                  label="Back"
+                  size="small"
+                  onClick={() => setShowDashboardModal(false)}
+                  ariaLabel="Back to deliverable view"
+                />
                 {dashboardUrl && (
                   <button
                     onClick={handleOpenNewTab}
@@ -538,6 +545,7 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
                   onClick={() => setShowDashboardModal(false)}
                   className="btn-secondary"
                   style={{ padding: '4px 8px' }}
+                  aria-label="Close dashboard modal"
                 >
                   <X size={15} />
                 </button>
@@ -605,13 +613,22 @@ export default function FinalDeliverable({ tasks = [], isVerified = false, workf
               <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)' }}>
                 NEXUS Execution Audit Report
               </div>
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="btn-secondary"
-                style={{ padding: '4px 8px' }}
-              >
-                <X size={15} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BackButton
+                  label="Back"
+                  size="small"
+                  onClick={() => setShowReportModal(false)}
+                  ariaLabel="Back to deliverable view"
+                />
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="btn-secondary"
+                  style={{ padding: '4px 8px' }}
+                  aria-label="Close audit report modal"
+                >
+                  <X size={15} />
+                </button>
+              </div>
             </div>
 
             <div style={{ padding: '20px', overflowY: 'auto', fontSize: '0.85rem', lineHeight: '1.6' }}>

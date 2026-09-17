@@ -25,6 +25,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { API_BASE } from '../config';
+import BackButton from './BackButton';
 
 export default function AgentDetailDrawer({
   agentId,
@@ -356,6 +357,8 @@ export default function AgentDetailDrawer({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <BackButton label="Back" size="small" onClick={onClose} ariaLabel="Close workstation drawer and go back" />
+
             <span className={`badge ${statusBadge.cls}`}>
               {statusBadge.label}
             </span>

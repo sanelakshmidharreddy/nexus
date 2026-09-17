@@ -13,6 +13,7 @@ import {
   Layers,
   Search,
 } from 'lucide-react';
+import BackButton from './BackButton';
 
 export default function RecoveryCenterView({ workflow, events = [], tasks = [] }) {
   const workflowId = workflow?.workflow_id || 'Awaiting Active Workflow';
@@ -52,7 +53,8 @@ export default function RecoveryCenterView({ workflow, events = [], tasks = [] }
       {/* Top Incident Control Header */}
       <div className="panel" style={{ background: '#ffffff' }}>
         <div className="panel-header" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="panel-title">
+          <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <BackButton label="Back" size="small" fallbackTab="overview" />
             <ShieldAlert size={16} color="var(--state-success)" />
             <span>NEXUS RECOVERY CENTER — AUTONOMOUS INCIDENT RESPONSE</span>
           </div>

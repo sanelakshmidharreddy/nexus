@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FolderTree, FileCode, Layers, Check, ExternalLink, Eye, X } from 'lucide-react';
 import { API_BASE } from '../config';
+import BackButton from './BackButton';
 
 export default function ProjectFilesView({ artifacts = [], workflowId }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -162,14 +163,18 @@ export default function ProjectFilesView({ artifacts = [], workflowId }) {
               padding: '12px 18px',
               borderBottom: '1px solid var(--border-subtle)',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', fontWeight: '700' }}>
-                <FileCode size={15} />
-                <span>{selectedFile}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <BackButton label="Back" size="small" onClick={() => setSelectedFile(null)} ariaLabel="Back to project files" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', fontWeight: '700' }}>
+                  <FileCode size={15} />
+                  <span>{selectedFile}</span>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedFile(null)}
                 className="btn-secondary"
                 style={{ padding: '3px 8px' }}
+                aria-label="Close file viewer"
               >
                 <X size={14} />
               </button>

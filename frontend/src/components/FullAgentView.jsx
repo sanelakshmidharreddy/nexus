@@ -26,6 +26,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { API_BASE } from '../config';
+import BackButton from './BackButton';
 
 export default function FullAgentView({
   agentId = 'research',
@@ -289,24 +290,7 @@ export default function FullAgentView({
         zIndex: 40,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-secondary"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-            }}
-          >
-            <ArrowLeft size={14} />
-            <span>← Back to Command Center</span>
-          </button>
-
+          <BackButton label="Back" onClick={onBack} fallbackTab="agents" />
           <div style={{ height: '24px', width: '1px', background: 'var(--border-subtle)' }} />
 
           {/* Quick Specialist Switcher */}

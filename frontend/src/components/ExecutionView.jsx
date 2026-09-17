@@ -13,6 +13,7 @@ import {
   Play,
   ArrowRight,
 } from 'lucide-react';
+import BackButton from './BackButton';
 
 export default function ExecutionView({ workflow, tasks = [], events = [], logs = [] }) {
   const runningTask = tasks.find(t => t.status === 'running' || t.status === 'retrying');
@@ -25,7 +26,8 @@ export default function ExecutionView({ workflow, tasks = [], events = [], logs 
       {/* Top Operational Telemetry Bar */}
       <div className="panel" style={{ background: '#ffffff' }}>
         <div className="panel-header">
-          <div className="panel-title">
+          <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <BackButton label="Back" size="small" fallbackTab="overview" />
             <Terminal size={15} style={{ color: 'var(--text-muted)' }} />
             <span>Operational DAG Execution Controller</span>
           </div>

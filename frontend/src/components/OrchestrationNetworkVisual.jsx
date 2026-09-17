@@ -17,6 +17,7 @@ import {
   Layers,
   Cpu,
 } from 'lucide-react';
+import BackButton from './BackButton';
 
 export default function OrchestrationNetworkVisual({
   tasks = [],
@@ -1086,21 +1087,34 @@ export default function OrchestrationNetworkVisual({
                 NEXUS ORCHESTRATOR CORE TELEMETRY
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsCoreModalOpen(false)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                color: '#cbd5e1',
-                padding: '4px',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-              title="Close Details (ESC)"
-            >
-              <X size={14} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BackButton
+                label="Back"
+                size="small"
+                onClick={() => setIsCoreModalOpen(false)}
+                ariaLabel="Back to visualizer"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: '#f8fafc',
+                  borderColor: '#334155',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setIsCoreModalOpen(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: 'none',
+                  color: '#cbd5e1',
+                  padding: '4px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
+                title="Close Details (ESC)"
+              >
+                <X size={14} />
+              </button>
+            </div>
           </div>
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
