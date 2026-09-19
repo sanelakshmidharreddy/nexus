@@ -205,7 +205,7 @@ export default function Header({ isOnline, connectionStatus = 'ONLINE', modelNam
           <Server size={13} style={{ color: 'var(--text-muted)' }} />
           <span style={{ color: 'var(--text-muted)' }}>API:</span>
           <span style={{ color: 'var(--text-primary)', fontWeight: '600', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {apiUrl ? apiUrl.replace(/^https?:\/\//, '') : 'localhost:8000'}
+            {apiUrl ? apiUrl.replace(/^https?:\/\//, '') : 'Configuring...'}
           </span>
         </div>
 

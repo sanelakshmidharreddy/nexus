@@ -1,5 +1,6 @@
 """FastAPI application entrypoint for NEXUS Orchestrator."""
 
+import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -11,6 +12,8 @@ from pydantic import BaseModel
 from backend.orchestrator import db, execution, goal_parser, model, planner
 from backend.orchestrator.state import Workflow
 from backend.tools import workspace_tools
+
+logger = logging.getLogger("nexus.backend")
 
 
 @asynccontextmanager
@@ -29,15 +32,23 @@ default_origins = [
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
     "https://nexus-livid-six.vercel.app",
 ]
 custom_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
 allow_origins = list(set(default_origins + custom_origins))
 
+# Allow any localhost/127.0.0.1 port and any vercel preview/production domain
+allow_origin_regex = os.environ.get(
+    "CORS_ORIGIN_REGEX",
+    r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.vercel\.app)$",
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,20 +65,39 @@ class ExecuteRequest(BaseModel):
     demo_mode: bool = True
 
 
+@app.get("/")
+def root():
+    """Root status endpoint providing service metadata."""
+    reachable, model_name = model.check_connection()
+    return {
+        "service": "NEXUS Orchestrator API",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health",
+        "model_connected": reachable,
+        "mode": "ollama (local ai)" if reachable else "deterministic fallback (production/demo mode)",
+    }
+
+
 @app.get("/health")
 def health():
     """Health check endpoint.
     
     Always returns HTTP 200 with connection status and model telemetry so
     the frontend can accurately display ONLINE, DEGRADED, or OFFLINE.
+    Clearly reports whether local Ollama is active or if the server
+    is operating in deterministic demo fallback mode.
     """
     reachable, model_name = model.check_connection()
+    is_prod = bool(os.environ.get("PORT") or os.environ.get("RENDER") or os.environ.get("RAILWAY_ENVIRONMENT"))
     return {
         "status": "ok",
         "backend": "online",
-        "model": model_name,
+        "model": model_name if reachable else "deterministic-fallback",
         "model_reachable": reachable,
-        "mode": "ollama" if reachable else "deterministic_fallback"
+        "mode": "ollama" if reachable else "deterministic_fallback",
+        "deployment": "production" if is_prod else "local",
+        "ollama_host": model.get_ollama_host() if reachable else None,
     }
 
 
@@ -184,3 +214,12 @@ def serve_artifact(workflow_id: str, file_path: str):
         return FileResponse(safe_path)
     except workspace_tools.ToolSecurityError:
         raise HTTPException(status_code=403, detail="Access denied: path escapes sandbox")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("PORT", "8000"))
+    host = os.environ.get("HOST", "0.0.0.0")
+    print(f"Starting NEXUS FastAPI backend on {host}:{port}")
+    uvicorn.run("backend.main:app", host=host, port=port, reload=False)

@@ -249,9 +249,37 @@ export default function CommandCenter() {
       checkHealthAndWorkflows();
 
     } catch (err) {
-      const msg = err.message || 'Failed to dispatch workflow to backend';
-      setError(msg);
-      addLog('error', `Workflow dispatch failed: ${msg}`);
+      console.error("[NEXUS Backend Error]", err);
+      const isFetchError =
+        err.name === 'TypeError' ||
+        err.message?.toLowerCase().includes('fetch') ||
+        err.message?.toLowerCase().includes('network') ||
+        err.message?.toLowerCase().includes('failed');
+
+      const diagnosticError = isFetchError
+        ? {
+            isConnectionError: true,
+            title: 'CONNECTION ERROR',
+            subtitle: 'Unable to reach the NEXUS orchestration backend.',
+            apiUrl: API_BASE,
+            causes: [
+              'Backend is offline (verify FastAPI is running: uvicorn backend.main:app --port 8000)',
+              `API URL is incorrect or unreachable from this browser (configured: ${API_BASE})`,
+              'CORS configuration issue or firewall blocking network traffic',
+              'Deployment unavailable (on Vercel, set VITE_API_URL to your public backend URL in Project Settings)'
+            ],
+            rawMessage: err.message
+          }
+        : {
+            isConnectionError: false,
+            title: 'DISPATCH ERROR',
+            subtitle: err.message || 'Failed to dispatch workflow to backend',
+            apiUrl: API_BASE,
+            rawMessage: err.message
+          };
+
+      setError(diagnosticError);
+      addLog('error', `Workflow dispatch failed: ${isFetchError ? 'Backend unreachable at ' + API_BASE : err.message}`);
       setIsLaunchModalOpen(false);
     } finally {
       setIsSubmitting(false);

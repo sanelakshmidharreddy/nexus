@@ -305,22 +305,50 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
           </div>
         )}
 
-        {/* Error Alert */}
+        {/* Error Alert / Diagnostic Connection Card */}
         {error && (
           <div style={{
             marginTop: '16px',
-            padding: '12px 16px',
-            background: 'var(--state-failure-bg)',
-            border: '1px solid var(--state-failure-border)',
+            padding: '16px 18px',
+            background: '#fff1f2',
+            border: '1px solid #fecdd3',
             borderRadius: 'var(--radius-sm)',
-            color: 'var(--state-failure-text)',
-            fontSize: '0.82rem',
+            color: '#9f1239',
+            fontSize: '0.84rem',
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
             gap: '10px',
+            boxShadow: '0 2px 8px rgba(225, 29, 72, 0.08)',
           }}>
-            <AlertCircle size={16} color="var(--state-failure)" />
-            <span>{error}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={18} color="#e11d48" style={{ flexShrink: 0 }} />
+                <span style={{ fontWeight: '800', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#be123c' }}>
+                  {typeof error === 'object' ? (error.title || 'CONNECTION ERROR') : 'CONNECTION ERROR'}
+                </span>
+              </div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', background: '#ffffff', padding: '2px 8px', borderRadius: '4px', border: '1px solid #fecdd3', color: '#475569' }}>
+                <span>Backend:</span>
+                <strong style={{ color: '#0f172a' }}>{typeof error === 'object' ? error.apiUrl : (isOnline ? 'Online' : 'Offline')}</strong>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: '500', lineHeight: '1.45' }}>
+              {typeof error === 'object' ? error.subtitle : error}
+            </div>
+
+            {typeof error === 'object' && error.causes && (
+              <div style={{ marginTop: '2px', paddingTop: '8px', borderTop: '1px solid #ffe4e6' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#881337', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
+                  POSSIBLE CAUSES & CHECKS:
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#475569', lineHeight: '1.6' }}>
+                  {error.causes.map((cause, idx) => (
+                    <li key={idx}>{cause}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
