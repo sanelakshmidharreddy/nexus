@@ -10,3 +10,5 @@ services:
         value: "true"
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: PYTHONPATH
+        value: "."
