@@ -120,7 +120,7 @@ def parse(goal: str, prefer_deterministic: bool = False) -> dict:
     Falls back to deterministic requirements if model is unreachable or returns invalid format twice.
     """
     import os
-    if prefer_deterministic or os.environ.get("NEXUS_DEMO_FAST", "").lower() in ("1", "true", "yes"):
+    if prefer_deterministic or os.environ.get("DEMO_MODE", "").lower() in ("1", "true", "yes") or os.environ.get("NEXUS_DEMO_FAST", "").lower() in ("1", "true", "yes"):
         logger.info("Using fast deterministic requirements for demo execution.")
         return _build_deterministic_requirements(goal)
 

@@ -19,6 +19,12 @@ class ToolSecurityError(Exception):
     pass
 
 
+def ensure_workspace_root() -> str:
+    """Ensure that the root workspace and generated_projects directories exist."""
+    os.makedirs(WORKSPACE_ROOT, exist_ok=True)
+    return WORKSPACE_ROOT
+
+
 def get_sandbox_dir(workflow_id: str) -> str:
     """Return the absolute path to the sandbox directory for a workflow, creating it if needed."""
     clean_id = os.path.basename(workflow_id.strip())
@@ -35,7 +41,7 @@ def _resolve_safe_path(workflow_id: str, rel_path: str) -> str:
 
     # Path traversal check
     if not (target_abs == sandbox_dir or target_abs.startswith(sandbox_dir + os.sep)):
-        raise ToolSecurityError(f"Access denied: path '{rel_path}' escapes sandbox '{sandbox_dir}'")
+        raise ToolSecurityError(f"Access denied: path '{rel_path}' escapes workflow sandbox")
     return target_abs
 
 

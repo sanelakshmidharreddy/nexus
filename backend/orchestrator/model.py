@@ -53,15 +53,27 @@ def generate_json(prompt: str, system: str = "") -> str:
         raise ModelConnectionError(f"Local model unreachable: {e}") from e
 
 
+def is_ollama_enabled() -> bool:
+    """Return whether Ollama integration is enabled via environment."""
+    return os.environ.get("OLLAMA_ENABLED", "true").lower() in ("true", "1", "yes")
+
+
 def check_connection() -> tuple[bool, str]:
     """Check if the local Ollama host is reachable.
     
     Returns (is_reachable, model_name).
+    When Ollama is disabled or in demo mode without a custom host,
+    uses a tight timeout to prevent blocking health checks.
     """
-    host = get_ollama_host()
     model = get_configured_model()
+    if not is_ollama_enabled():
+        return False, model
+
+    host = get_ollama_host()
+    # If DEMO_MODE is active and OLLAMA_HOST is the default localhost, probe with a fast timeout
+    timeout = float(os.environ.get("OLLAMA_PROBE_TIMEOUT", "1.5"))
     try:
-        response = requests.get(f"{host}/api/tags", timeout=5)
+        response = requests.get(f"{host}/api/tags", timeout=timeout)
         response.raise_for_status()
         return True, model
     except requests.RequestException:

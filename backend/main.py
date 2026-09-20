@@ -2,12 +2,19 @@
 
 import logging
 import os
+import sys
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
+
+# Ensure the repository root is always on sys.path so 'backend' is importable from any directory
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from backend.orchestrator import db, execution, goal_parser, model, planner
 from backend.orchestrator.state import Workflow
@@ -18,8 +25,9 @@ logger = logging.getLogger("nexus.backend")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize SQLite schema and migrations at startup
+    # Initialize SQLite schema and ensure workspace directories at startup
     db.init_db()
+    workspace_tools.ensure_workspace_root()
     yield
 
 
@@ -54,15 +62,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+DEMO_MODE_DEFAULT = os.environ.get("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+
 
 class GoalRequest(BaseModel):
     goal: str
     auto_execute: bool = True
-    demo_mode: bool = True
+    demo_mode: bool = DEMO_MODE_DEFAULT
 
 
 class ExecuteRequest(BaseModel):
-    demo_mode: bool = True
+    demo_mode: bool = DEMO_MODE_DEFAULT
 
 
 @app.get("/")
@@ -76,6 +86,7 @@ def root():
         "health": "/health",
         "model_connected": reachable,
         "mode": "ollama (local ai)" if reachable else "deterministic fallback (production/demo mode)",
+        "demo_mode": DEMO_MODE_DEFAULT,
     }
 
 
@@ -96,6 +107,7 @@ def health():
         "model": model_name if reachable else "deterministic-fallback",
         "model_reachable": reachable,
         "mode": "ollama" if reachable else "deterministic_fallback",
+        "demo_mode": DEMO_MODE_DEFAULT,
         "deployment": "production" if is_prod else "local",
         "ollama_host": model.get_ollama_host() if reachable else None,
     }
@@ -132,7 +144,7 @@ def execute_workflow(workflow_id: str, payload: ExecuteRequest | None = None):
     if not workflow:
         raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
 
-    demo_mode = payload.demo_mode if payload else True
+    demo_mode = payload.demo_mode if payload else DEMO_MODE_DEFAULT
     execution.start_workflow_background(workflow_id, controlled_failure_demo=demo_mode)
     return {"status": "started", "workflow_id": workflow_id}
 

@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import { ArrowRight, Check, AlertCircle, Sparkles, ListChecks, Play, Zap } from 'lucide-react';
 
-export default function GoalInput({ onStartWorkflow, isSubmitting, error, activeGoal, requirements, isOnline, workflowStatus }) {
+export default function GoalInput({
+  onStartWorkflow,
+  isSubmitting,
+  error,
+  activeGoal,
+  requirements,
+  isOnline,
+  connectionStatus,
+  connectionMessage,
+  workflowStatus,
+}) {
   const defaultGoalText = "Build a RoadSafe-style accident analytics dashboard from this dataset.";
   const [goal, setGoal] = useState(activeGoal || defaultGoalText);
   const [submissionStage, setSubmissionStage] = useState('IDLE'); // 'IDLE' | 'INITIALIZING' | 'UNDERSTANDING' | 'PLANNING' | 'EXECUTING'
@@ -302,6 +312,34 @@ export default function GoalInput({ onStartWorkflow, isSubmitting, error, active
               <span className="badge badge-success">100% VERIFIED</span>
               <span className="badge badge-running">DELIVERABLE READY</span>
             </div>
+          </div>
+        )}
+
+        {/* Waking Up / Cold-Start Informational Banner */}
+        {!error && connectionStatus === 'RETRYING' && (
+          <div style={{
+            marginTop: '16px',
+            padding: '12px 16px',
+            background: 'var(--state-running-bg)',
+            border: '1px solid var(--state-running-border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--state-running-text)',
+            fontSize: '0.8rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="status-dot status-dot-running" />
+              <span style={{ fontWeight: '600' }}>
+                Backend service is waking up on Render (free tier cold-start may take ~30-50s).
+              </span>
+            </div>
+            <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', opacity: 0.85 }}>
+              Auto-reconnecting...
+            </span>
           </div>
         )}
 

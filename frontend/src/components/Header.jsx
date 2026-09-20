@@ -52,11 +52,50 @@ export function NexusLogoMark({ size = 26, isExecuting = false, isVerified = fal
   );
 }
 
-export default function Header({ isOnline, connectionStatus = 'ONLINE', modelName, latency, apiUrl, isExecuting = false, isVerified = false }) {
+export default function Header({
+  isOnline,
+  connectionStatus = 'CONNECTING',
+  modelName,
+  latency,
+  apiUrl,
+  isExecuting = false,
+  isVerified = false,
+  connectionMessage = '',
+}) {
   const getStatusDisplay = () => {
-    if (!isOnline || connectionStatus === 'OFFLINE') {
+    if (connectionStatus === 'CONNECTING') {
       return {
-        label: 'BACKEND OFFLINE',
+        label: 'CONNECTING...',
+        dotClass: 'status-dot-pending',
+        bg: 'var(--bg-surface-secondary)',
+        border: 'var(--border-subtle)',
+        text: 'var(--text-muted)',
+        icon: Wifi
+      };
+    }
+    if (connectionStatus === 'RETRYING') {
+      return {
+        label: connectionMessage || 'WAKING UP (RETRYING)...',
+        dotClass: 'status-dot-running',
+        bg: 'var(--state-running-bg)',
+        border: 'var(--state-running-border)',
+        text: 'var(--state-running-text)',
+        icon: AlertCircle
+      };
+    }
+    if (connectionStatus === 'UNCONFIGURED') {
+      return {
+        label: 'API UNCONFIGURED',
+        dotClass: 'status-dot-failure',
+        bg: 'var(--state-failure-bg)',
+        border: 'var(--state-failure-border)',
+        text: 'var(--state-failure-text)',
+        icon: AlertCircle
+      };
+    }
+    if (!isOnline || connectionStatus === 'OFFLINE' || connectionStatus === 'UNREACHABLE') {
+      return {
+        label: 'BACKEND UNREACHABLE',
         dotClass: 'status-dot-failure',
         bg: 'var(--state-failure-bg)',
         border: 'var(--state-failure-border)',
@@ -205,7 +244,7 @@ export default function Header({ isOnline, connectionStatus = 'ONLINE', modelNam
           <Server size={13} style={{ color: 'var(--text-muted)' }} />
           <span style={{ color: 'var(--text-muted)' }}>API:</span>
           <span style={{ color: 'var(--text-primary)', fontWeight: '600', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {apiUrl ? apiUrl.replace(/^https?:\/\//, '') : 'Configuring...'}
+            {apiUrl ? apiUrl.replace(/^https?:\/\//, '') : 'Unconfigured'}
           </span>
         </div>
 
@@ -244,18 +283,20 @@ export default function Header({ isOnline, connectionStatus = 'ONLINE', modelNam
         </div>
 
         {/* FastAPI Docs Link */}
-        <a
-          href={`${apiUrl}/docs`}
-          target="_blank"
-          rel="noreferrer"
-          className="btn-secondary"
-          style={{ textDecoration: 'none', padding: '4px 10px', fontSize: '0.72rem' }}
-          title="Open FastAPI Swagger Interactive Documentation"
-        >
-          <Terminal size={12} style={{ color: 'var(--text-muted)' }} />
-          <span>API Docs</span>
-          <ExternalLink size={11} style={{ color: 'var(--text-faint)' }} />
-        </a>
+        {apiUrl && (
+          <a
+            href={`${apiUrl}/docs`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-secondary"
+            style={{ textDecoration: 'none', padding: '4px 10px', fontSize: '0.72rem' }}
+            title="Open FastAPI Swagger Interactive Documentation"
+          >
+            <Terminal size={12} style={{ color: 'var(--text-muted)' }} />
+            <span>API Docs</span>
+            <ExternalLink size={11} style={{ color: 'var(--text-faint)' }} />
+          </a>
+        )}
       </div>
     </header>
   );

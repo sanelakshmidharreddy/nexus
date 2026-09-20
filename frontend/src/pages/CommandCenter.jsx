@@ -21,7 +21,8 @@ import FullAgentView from '../components/FullAgentView';
 import BackButton from '../components/BackButton';
 import { useNavigation } from '../context/NavigationContext';
 import { LayoutDashboard, GitFork, Users, Terminal, FolderTree, RefreshCw, ShieldAlert } from 'lucide-react';
-import { API_BASE } from '../config';
+import { API_BASE, IS_API_CONFIGURED, IS_LOCAL_ENV, isLocalApiUrl } from '../config';
+import { checkHealthWithRetry } from '../services/healthCheck';
 
 export default function CommandCenter() {
   const {
@@ -39,9 +40,13 @@ export default function CommandCenter() {
   const setFullViewAgentId = (agentId) => navigateTo('agent_full', { agentId });
 
   const [isOnline, setIsOnline] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('ONLINE'); // 'ONLINE' | 'DEGRADED' | 'OFFLINE'
+  const [connectionStatus, setConnectionStatus] = useState(IS_API_CONFIGURED ? 'CONNECTING' : 'UNCONFIGURED');
+  const [connectionMessage, setConnectionMessage] = useState(
+    IS_API_CONFIGURED ? 'Probing NEXUS backend orchestrator...' : 'VITE_API_URL not configured.'
+  );
   const [modelName, setModelName] = useState('qwen2.5:7b-instruct');
   const [latency, setLatency] = useState(null);
+  const isCheckingHealthRef = useRef(false);
 
   const [activeWorkflow, setActiveWorkflow] = useState(null);
   const [workflowsList, setWorkflowsList] = useState([]);
@@ -61,7 +66,7 @@ export default function CommandCenter() {
   const [error, setError] = useState(null);
   const [logs, setLogs] = useState([
     { time: new Date().toLocaleTimeString(), type: 'info', message: 'NEXUS Command Center interface initialized.' },
-    { time: new Date().toLocaleTimeString(), type: 'info', message: `Connected to orchestrator backend at ${API_BASE}...` }
+    { time: new Date().toLocaleTimeString(), type: 'info', message: API_BASE ? `Targeting orchestrator backend at ${API_BASE}...` : 'Awaiting VITE_API_URL configuration...' }
   ]);
 
   const lastEventCountRef = useRef(0);
@@ -74,39 +79,58 @@ export default function CommandCenter() {
     }]);
   };
 
-  // Health check & recent workflows fetch
-  const checkHealthAndWorkflows = async () => {
-    const start = Date.now();
-    try {
-      const res = await fetch(`${API_BASE}/health`);
-      const delta = Date.now() - start;
-      if (res.ok) {
-        const data = await res.json();
-        setIsOnline(true);
-        setConnectionStatus(data.model_reachable ? 'ONLINE' : 'DEGRADED');
-        setModelName(data.model || 'qwen2.5:7b-instruct');
-        setLatency(delta);
-      } else {
-        setIsOnline(false);
-        setConnectionStatus('OFFLINE');
-      }
-    } catch {
-      setIsOnline(false);
-      setConnectionStatus('OFFLINE');
-      setLatency(null);
-    }
+  // Health check & recent workflows fetch using connection state machine
+  const checkHealthAndWorkflows = async (isInitial = false) => {
+    if (isCheckingHealthRef.current) return;
+    isCheckingHealthRef.current = true;
 
     try {
-      const wfRes = await fetch(`${API_BASE}/workflows`);
-      if (wfRes.ok) {
-        const wfList = await wfRes.json();
-        setWorkflowsList(wfList);
-        if (!activeWorkflow && wfList.length > 0) {
-          loadWorkflowData(wfList[0]);
+      if (!API_BASE) {
+        setIsOnline(false);
+        setConnectionStatus('UNCONFIGURED');
+        setConnectionMessage('VITE_API_URL is missing. Configure your Render backend URL in Vercel settings.');
+        return;
+      }
+
+      const result = await checkHealthWithRetry({
+        apiBase: API_BASE,
+        timeoutMs: 8000,
+        maxRetries: isInitial ? 3 : 1,
+        onStateChange: (update) => {
+          if (update.state === 'CONNECTING' || update.state === 'RETRYING') {
+            setConnectionStatus(update.state);
+            setConnectionMessage(update.message);
+          } else if (update.state === 'CONNECTED') {
+            setIsOnline(true);
+            setConnectionStatus(update.data?.model_reachable ? 'ONLINE' : 'DEGRADED');
+            setModelName(update.data?.model || 'qwen2.5:7b-instruct');
+            setLatency(update.latency);
+            setConnectionMessage(update.message);
+          } else if (update.state === 'UNREACHABLE' || update.state === 'UNCONFIGURED') {
+            setIsOnline(false);
+            setConnectionStatus(update.state);
+            setConnectionMessage(update.message);
+            setLatency(null);
+          }
+        },
+      });
+
+      if (result.ok) {
+        try {
+          const wfRes = await fetch(`${API_BASE}/workflows`);
+          if (wfRes.ok) {
+            const wfList = await wfRes.json();
+            setWorkflowsList(wfList);
+            if (!activeWorkflow && wfList.length > 0) {
+              loadWorkflowData(wfList[0]);
+            }
+          }
+        } catch {
+          // ignore
         }
       }
-    } catch {
-      // ignore
+    } finally {
+      isCheckingHealthRef.current = false;
     }
   };
 
@@ -139,8 +163,8 @@ export default function CommandCenter() {
   };
 
   useEffect(() => {
-    checkHealthAndWorkflows();
-    const interval = setInterval(checkHealthAndWorkflows, 8000);
+    checkHealthAndWorkflows(true);
+    const interval = setInterval(() => checkHealthAndWorkflows(false), 9000);
     return () => clearInterval(interval);
   }, []);
 
@@ -213,6 +237,31 @@ export default function CommandCenter() {
     addLog('info', `Mission directive dispatched: "${goalText}"`);
     addLog('info', `Topological planning initiated (Mode: ${isDemo ? 'RoadSafe Benchmark' : 'LLM Planner'})...`);
 
+    if (!API_BASE) {
+      const unconfiguredError = {
+        isConnectionError: true,
+        title: 'API CONFIGURATION REQUIRED',
+        subtitle: 'VITE_API_URL is not configured for this production deployment.',
+        apiUrl: 'Unconfigured',
+        causes: [
+          'In Vercel Project Settings -> Environment Variables, add: VITE_API_URL=<Render-Backend-URL>',
+          'After saving, trigger a Redeployment on Vercel so the frontend bakes in the new URL',
+          'For immediate live judge testing without redeployment, append ?apiUrl=https://your-backend.onrender.com to the browser URL',
+          'For local development, ensure your local server runs on http://localhost:8000'
+        ],
+        rawMessage: 'VITE_API_URL environment variable missing'
+      };
+      setError(unconfiguredError);
+      addLog('error', 'Workflow dispatch halted: VITE_API_URL not configured');
+      setIsLaunchModalOpen(false);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (connectionStatus === 'RETRYING') {
+      addLog('warn', 'Backend service is currently cold-starting on Render. Request is queued...');
+    }
+
     try {
       const response = await fetch(`${API_BASE}/goals`, {
         method: 'POST',
@@ -256,30 +305,40 @@ export default function CommandCenter() {
         err.message?.toLowerCase().includes('network') ||
         err.message?.toLowerCase().includes('failed');
 
+      const isWaking = connectionStatus === 'RETRYING';
+
       const diagnosticError = isFetchError
         ? {
             isConnectionError: true,
-            title: 'CONNECTION ERROR',
-            subtitle: 'Unable to reach the NEXUS orchestration backend.',
-            apiUrl: API_BASE,
-            causes: [
-              'Backend is offline (verify FastAPI is running: uvicorn backend.main:app --port 8000)',
-              `API URL is incorrect or unreachable from this browser (configured: ${API_BASE})`,
-              'CORS configuration issue or firewall blocking network traffic',
-              'Deployment unavailable (on Vercel, set VITE_API_URL to your public backend URL in Project Settings)'
-            ],
+            title: isWaking ? 'BACKEND SERVICE WAKING UP' : 'CONNECTION ERROR',
+            subtitle: isWaking
+              ? 'Render backend is currently booting from spin-down (~30-50s cold-start). Please wait a moment and try again.'
+              : 'Unable to reach the NEXUS orchestration backend.',
+            apiUrl: API_BASE || 'Unconfigured',
+            causes: isWaking
+              ? [
+                  'Render free tier Web Services spin down after inactivity and take 30-50s to wake up',
+                  'The health monitor is actively retrying in the background',
+                  'Once the header indicator switches to online/fallback, click Start Orchestration again'
+                ]
+              : [
+                  'Backend is offline or booting up (verify Render Web Service status)',
+                  `API URL is unreachable from this browser (configured: ${API_BASE})`,
+                  'CORS configuration issue or network firewall blocking requests',
+                  'Verify VITE_API_URL is configured in your Vercel Project Settings'
+                ],
             rawMessage: err.message
           }
         : {
             isConnectionError: false,
             title: 'DISPATCH ERROR',
             subtitle: err.message || 'Failed to dispatch workflow to backend',
-            apiUrl: API_BASE,
+            apiUrl: API_BASE || 'Unconfigured',
             rawMessage: err.message
           };
 
       setError(diagnosticError);
-      addLog('error', `Workflow dispatch failed: ${isFetchError ? 'Backend unreachable at ' + API_BASE : err.message}`);
+      addLog('error', `Workflow dispatch failed: ${isFetchError ? (isWaking ? 'Backend cold-starting at ' + API_BASE : 'Backend unreachable at ' + API_BASE) : err.message}`);
       setIsLaunchModalOpen(false);
     } finally {
       setIsSubmitting(false);
@@ -321,6 +380,7 @@ export default function CommandCenter() {
       <Header
         isOnline={isOnline}
         connectionStatus={connectionStatus}
+        connectionMessage={connectionMessage}
         modelName={modelName}
         latency={latency}
         apiUrl={API_BASE}
@@ -516,6 +576,8 @@ export default function CommandCenter() {
                 activeGoal={activeWorkflow?.original_goal}
                 requirements={requirements}
                 isOnline={isOnline}
+                connectionStatus={connectionStatus}
+                connectionMessage={connectionMessage}
                 workflowStatus={activeWorkflow?.status}
               />
 
@@ -854,7 +916,7 @@ export default function CommandCenter() {
         gap: '8px',
       }}>
         <div>NEXUS AI Agent Orchestrator — Autonomous Multi-Agent Command Center</div>
-        <div>FastAPI Backend: {API_BASE} | Autonomous DAG & Recovery: Operational</div>
+        <div>FastAPI Backend: {API_BASE || 'Unconfigured (Set VITE_API_URL in Vercel)'} | Autonomous DAG & Recovery: Operational</div>
       </footer>
     </div>
   );
