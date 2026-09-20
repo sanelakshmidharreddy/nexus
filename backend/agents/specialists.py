@@ -21,6 +21,12 @@ def execute_research_agent(workflow_id: str, goal: str, requirements: dict) -> d
     domain = requirements.get("domain", "Road Safety Analytics")
     features = requirements.get("requested_features", [])
 
+    feature_text = (
+        "\n".join(f"- {feature}" for feature in features)
+        if features
+        else "- Accident frequency analysis\n- Hotspot map view\n- Risk factor correlation"
+    )
+
     research_md = f"""# NEXUS Research Dossier: {domain}
 **Generated**: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}
 **Mission Objective**: {objective}
@@ -37,7 +43,7 @@ def execute_research_agent(workflow_id: str, goal: str, requirements: dict) -> d
 - Interactive dashboard UI specification meeting accessibility and responsiveness standards.
 
 ## 3. Recommended Feature Constraints
-{chr(10).join(f"- {f}" for f in features) if features else "- Accident frequency analysis\n- Hotspot map view\n- Risk factor correlation"}
+{feature_text}
 """
     workspace_tools.write_file(workflow_id, "research.md", research_md)
     return {
