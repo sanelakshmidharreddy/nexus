@@ -297,6 +297,13 @@ export default function CommandCenter() {
     return 'WAITING';
   };
 
+  const stageStatuses = {
+    create: getStageStatus('CREATE').toLowerCase(),
+    test: getStageStatus('TEST').toLowerCase(),
+    deploy: getStageStatus('DEPLOY').toLowerCase(),
+    collaborate: getStageStatus('COLLABORATE').toLowerCase(),
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
       {/* 1. Header */}
@@ -473,6 +480,8 @@ export default function CommandCenter() {
               evaluation={evaluation}
               requirements={requirements}
               tasks={tasks}
+              stageStatuses={stageStatuses}
+              activeWorkflow={activeWorkflow}
             />
           </div>
         </main>

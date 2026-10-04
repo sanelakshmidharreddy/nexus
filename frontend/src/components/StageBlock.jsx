@@ -186,7 +186,7 @@ export default function StageBlock({
                 </div>
               ) : status === 'running' ? (
                 <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  Analyzer and Code Generator agents formulating architecture and source files...
+                  CREATE agent analyzing requirements and generating source files...
                 </div>
               ) : null}
             </div>
@@ -250,7 +250,7 @@ export default function StageBlock({
                 </div>
               ) : status === 'running' ? (
                 <div style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.8rem' }}>
-                  Running static code analysis, AST parsing, and API consistency audits...
+                  TEST agent running static validation, syntax checks, and API contract audits...
                 </div>
               ) : (
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>

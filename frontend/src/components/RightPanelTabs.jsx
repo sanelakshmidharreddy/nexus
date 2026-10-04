@@ -6,14 +6,15 @@ import {
   Terminal,
   Download,
   ExternalLink,
-  Eye,
   Copy,
   Check,
   CheckCircle2,
   AlertCircle,
+  GitBranch,
 } from 'lucide-react';
 import { API_BASE } from '../config';
 import FileTree from './FileTree';
+import AgentGraph from './AgentGraph';
 
 export default function RightPanelTabs({
   workflowId,
@@ -22,9 +23,11 @@ export default function RightPanelTabs({
   requirements = null,
   tasks = [],
   logs = [],
+  stageStatuses = {},
+  activeWorkflow = null,
   onSelectFile = null,
 }) {
-  const [activeTab, setActiveTab] = useState('files'); // 'files' | 'plan' | 'validation' | 'logs'
+  const [activeTab, setActiveTab] = useState('pipeline'); // 'pipeline' | 'files' | 'plan' | 'validation' | 'logs'
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
   const [loadingFile, setLoadingFile] = useState(false);
@@ -146,96 +149,59 @@ export default function RightPanelTabs({
         </div>
       </div>
 
-      {/* Tabs Selector: Files | Plan | Validation | Logs */}
+      {/* Tabs Selector: Pipeline | Files | Plan | Validation | Logs */}
       <div
         style={{
           display: 'flex',
           borderBottom: '1px solid var(--border-subtle)',
           background: 'var(--bg-canvas)',
-          padding: '0 8px',
+          padding: '0 4px',
           overflowX: 'auto',
         }}
       >
-        <button
-          onClick={() => setActiveTab('files')}
-          style={{
-            padding: '10px 14px',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeTab === 'files' ? '2px solid var(--text-primary)' : '2px solid transparent',
-            fontWeight: activeTab === 'files' ? '700' : '500',
-            fontSize: '0.8rem',
-            color: activeTab === 'files' ? 'var(--text-primary)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <FileCode size={13} />
-          <span>Files ({filesCount})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('plan')}
-          style={{
-            padding: '10px 14px',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeTab === 'plan' ? '2px solid var(--text-primary)' : '2px solid transparent',
-            fontWeight: activeTab === 'plan' ? '700' : '500',
-            fontSize: '0.8rem',
-            color: activeTab === 'plan' ? 'var(--text-primary)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <Layers size={13} />
-          <span>Plan</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('validation')}
-          style={{
-            padding: '10px 14px',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeTab === 'validation' ? '2px solid var(--text-primary)' : '2px solid transparent',
-            fontWeight: activeTab === 'validation' ? '700' : '500',
-            fontSize: '0.8rem',
-            color: activeTab === 'validation' ? 'var(--text-primary)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <ShieldCheck size={13} />
-          <span>Validation ({evaluation?.score ? `${evaluation.score}%` : 'Audit'})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('logs')}
-          style={{
-            padding: '10px 14px',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeTab === 'logs' ? '2px solid var(--text-primary)' : '2px solid transparent',
-            fontWeight: activeTab === 'logs' ? '700' : '500',
-            fontSize: '0.8rem',
-            color: activeTab === 'logs' ? 'var(--text-primary)' : 'var(--text-muted)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <Terminal size={13} />
-          <span>Logs ({logs.length})</span>
-        </button>
+        {[
+          { id: 'pipeline', icon: <GitBranch size={12} />, label: 'Pipeline' },
+          { id: 'files', icon: <FileCode size={12} />, label: `Files (${filesCount})` },
+          { id: 'plan', icon: <Layers size={12} />, label: 'Plan' },
+          { id: 'validation', icon: <ShieldCheck size={12} />, label: evaluation?.score ? `${evaluation.score}%` : 'Audit' },
+          { id: 'logs', icon: <Terminal size={12} />, label: `Logs (${logs.length})` },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '9px 11px',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === tab.id ? '2px solid var(--text-primary)' : '2px solid transparent',
+              fontWeight: activeTab === tab.id ? '700' : '500',
+              fontSize: '0.76rem',
+              color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+          </button>
+        ))}
       </div>
+
+      {/* Tab 0: Pipeline — Agent Graph */}
+      {activeTab === 'pipeline' && (
+        <div style={{ padding: '16px', flex: 1, overflowY: 'auto' }}>
+          <AgentGraph
+            stageStatuses={stageStatuses}
+            activeWorkflow={activeWorkflow}
+            evaluation={evaluation}
+            artifacts={artifacts}
+            tasks={tasks}
+          />
+        </div>
+      )}
 
       {/* Tab 1: Files */}
       {activeTab === 'files' && (
