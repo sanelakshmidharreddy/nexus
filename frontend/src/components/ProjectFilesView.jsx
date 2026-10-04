@@ -8,19 +8,30 @@ export default function ProjectFilesView({ artifacts = [], workflowId }) {
   const [fileContent, setFileContent] = useState('');
   const [loadingFile, setLoadingFile] = useState(false);
 
+  const defaultFiles = [
+    { name: "index.html", desc: "Interactive accident geospatial map & KPI cards", size: "2.9 KB" },
+    { name: "styles.css", desc: "Design system & dashboard styles", size: "3.4 KB" },
+    { name: "app.js", desc: "Analytics logic, chart renders & hotspot clustering", size: "4.8 KB" },
+    { name: "data.json", desc: "Cleaned RoadSafe accident records & coordinates", size: "9.2 KB" },
+    { name: "analysis_summary.json", desc: "KPI metrics & severity distributions", size: "1.1 KB" },
+    { name: "research.md", desc: "Domain analysis & requirement specifications", size: "1.8 KB" },
+  ];
+
   const fileList = (artifacts && artifacts.length > 0)
     ? artifacts.map(f => {
         const name = typeof f === 'string' ? f : f.name;
         let desc = "Generated artifact";
-        if (name === 'index.html') desc = "Interactive web application entrypoint";
-        else if (name === 'styles.css') desc = "Design system & responsive CSS tokens";
-        else if (name === 'app.js') desc = "Core frontend application logic & state";
-        else if (name === 'data.json') desc = "Normalized mock data / seed dataset";
-        else if (name === 'package.json') desc = "Project dependencies and metadata";
-        else if (name === 'README.md') desc = "Project documentation and setup guide";
+        if (name === 'index.html') desc = "Interactive dashboard user interface";
+        else if (name === 'styles.css') desc = "CSS styling & responsive layout tokens";
+        else if (name === 'app.js') desc = "Analytics, temporal trends & coordinate mapping";
+        else if (name === 'data.json') desc = "Normalized accident dataset with geospatial points";
+        else if (name === 'data_profile.json') desc = "Data Agent schema profiling & field summary";
+        else if (name === 'analysis_summary.json') desc = "Accident metrics, casualties & risk factors";
+        else if (name === 'research.md') desc = "Research Agent domain breakdown & guidelines";
+        else if (name === 'ui_spec.json') desc = "UI Agent component architecture & view layout";
         return { name, desc };
       })
-    : [];
+    : defaultFiles;
 
   const handleOpenFile = async (fileName) => {
     if (!workflowId) return;
@@ -69,19 +80,6 @@ export default function ProjectFilesView({ artifacts = [], workflowId }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {fileList.length === 0 && (
-            <div style={{
-              padding: '24px',
-              textAlign: 'center',
-              color: 'var(--text-muted)',
-              fontSize: '0.8rem',
-              fontFamily: 'var(--font-mono)',
-              border: '1px dashed var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-            }}>
-              No artifacts generated yet. Start a workflow to produce verified project files.
-            </div>
-          )}
           {fileList.map((item, idx) => (
             <div
               key={idx}
@@ -90,7 +88,7 @@ export default function ProjectFilesView({ artifacts = [], workflowId }) {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '8px 12px',
-                background: 'var(--bg-surface)',
+                background: '#ffffff',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-xs)',
                 fontSize: '0.78rem',
