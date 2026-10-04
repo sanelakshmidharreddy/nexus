@@ -4,6 +4,7 @@ import SidebarRunHistory from '../components/SidebarRunHistory';
 import GoalInput from '../components/GoalInput';
 import AgentPanel from '../components/AgentPanel';
 import ExecutionPlanCard from '../components/ExecutionPlanCard';
+import EvaluationPanel from '../components/EvaluationPanel';
 import ProjectReadyBanner from '../components/ProjectReadyBanner';
 import ExecutionLog from '../components/ExecutionLog';
 import RightPanelTabs from '../components/RightPanelTabs';
@@ -241,6 +242,14 @@ export default function CommandCenter() {
     activeWorkflow?.status === 'planned' ||
     isSubmitting;
 
+  // Detect repair/regeneration events
+  const repairEvents = events.filter(e =>
+    e.event_type === 'EVALUATION_FAILED' ||
+    e.event_type === 'REPAIR_STARTED' ||
+    e.event_type === 'PATCH_APPLIED'
+  );
+  const isRepairing = repairEvents.length > 0 && isExecuting;
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
       {/* 1. Header */}
@@ -267,6 +276,7 @@ export default function CommandCenter() {
 
         {/* Center & Right Content Grid */}
         <main
+          className="command-center-main"
           style={{
             flex: 1,
             display: 'grid',
@@ -277,7 +287,7 @@ export default function CommandCenter() {
             maxHeight: 'calc(100vh - 58px)',
           }}
         >
-          {/* Center Column: Goal Input + Agent Pipeline + Execution Plan + Execution Log */}
+          {/* Center Column: Goal Input + Agent Pipeline + Execution Plan + Evaluation + Execution Log */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             {/* Final Project Ready Banner (When Completed) */}
             {activeWorkflow?.status === 'completed' && (
@@ -301,11 +311,59 @@ export default function CommandCenter() {
             />
 
             {/* 3. Agent Pipeline (4 Major Agent Cards: Analyzer, Planner, Code Generator, Evaluator) */}
-            <AgentPanel tasks={tasks} />
+            <AgentPanel
+              tasks={tasks}
+              requirements={requirements}
+              artifacts={artifacts}
+              evaluation={evaluation}
+              events={events}
+            />
+
+            {/* Repair / Regeneration Status */}
+            {isRepairing && (
+              <div style={{
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--state-warning-bg)',
+                border: '1px solid var(--state-warning-border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}>
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: 'var(--state-warning)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  flexShrink: 0,
+                }}>
+                  ⟳
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--state-warning-text)' }}>
+                    Evaluation Failed — Regeneration in Progress
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                    Problem detected. Code Generator is repairing the project. Re-evaluation will follow automatically.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 4. Execution Plan (Structured Card) */}
             {(requirements?.execution_plan || requirements?.project_name) && (
               <ExecutionPlanCard requirements={requirements} />
+            )}
+
+            {/* 6. Evaluation Panel */}
+            {evaluation && (
+              <EvaluationPanel evaluation={evaluation} />
             )}
 
             {/* 7. Execution Log */}

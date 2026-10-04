@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { API_BASE } from '../config';
+import FileTree from './FileTree';
 
 export default function RightPanelTabs({
   workflowId,
@@ -244,43 +245,11 @@ export default function RightPanelTabs({
             <span>{filesCount} files generated</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            {artifacts.map((f, idx) => {
-              const name = typeof f === 'string' ? f : f.path || f.name;
-              const size = f.size ? `${Math.round(f.size / 100) / 10}KB` : '';
-              return (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '7px 10px',
-                    borderRadius: 'var(--radius-xs)',
-                    border: '1px solid var(--border-subtle)',
-                    background: selectedFile === name ? 'var(--bg-surface-secondary)' : 'var(--bg-surface)',
-                    fontSize: '0.76rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                    <FileCode size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '600', color: 'var(--text-primary)' }}>
-                      {name}
-                    </span>
-                    {size && <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>({size})</span>}
-                  </div>
-
-                  <button
-                    onClick={() => handleOpenFile(name)}
-                    className="btn-secondary"
-                    style={{ padding: '2px 8px', fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Eye size={11} /> View
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          <FileTree
+            files={artifacts}
+            selectedFile={selectedFile}
+            onSelectFile={handleOpenFile}
+          />
 
           {/* Inline Code Viewer */}
           {selectedFile && (
