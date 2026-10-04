@@ -518,6 +518,77 @@ export default function Workspace({ onBackToLanding }) {
         </div>
       </header>
 
+      {/* 1b. System Status Strip */}
+      {activeWorkflow && (
+        <div
+          style={{
+            height: '36px',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: '#0f172a',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 20px',
+            gap: '16px',
+            overflowX: 'auto',
+            flexShrink: 0,
+          }}
+        >
+          {[
+            { label: 'SYSTEM', value: isOnline ? 'ONLINE' : 'OFFLINE', ok: isOnline },
+            { label: 'MODEL', value: connectionMessage.split('•')[1]?.trim() || 'AI', ok: true },
+            { label: 'API', value: isOnline ? 'VERIFIED' : 'CHECKING', ok: isOnline },
+            { label: 'WORKFLOW', value: activeWorkflow?.workflow_id ? `WF-${activeWorkflow.workflow_id.slice(0, 8).toUpperCase()}` : 'N/A', ok: !!activeWorkflow },
+            { label: 'AGENTS', value: '4 SPECIALISTS', ok: true },
+            {
+              label: 'STATUS',
+              value: activeWorkflow?.status === 'completed'
+                ? 'PROJECT READY'
+                : activeWorkflow?.status === 'failed'
+                ? 'FAILED'
+                : activeWorkflow?.status === 'running'
+                ? 'EXECUTING'
+                : 'INITIALIZING',
+              ok: activeWorkflow?.status === 'completed',
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.6rem',
+                  fontFamily: 'var(--font-mono)',
+                  color: '#475569',
+                  letterSpacing: '0.07em',
+                }}
+              >
+                {item.label}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  color: item.ok ? '#34d399' : '#f87171',
+                  background: item.ok ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+                  border: `1px solid ${item.ok ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`,
+                  padding: '1px 7px',
+                  borderRadius: '3px',
+                }}
+              >
+                {item.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 2. Main Workspace Layout: Left Sidebar + Center Chat Thread + Right Panel */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left Sidebar: Run History */}
@@ -694,15 +765,15 @@ export default function Workspace({ onBackToLanding }) {
                   <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '820px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       <Sparkles size={14} style={{ color: 'var(--state-running)' }} />
-                      <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>NEXUS AGENT PIPELINE</span>
+                      <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>CREATE → TEST → DEPLOY → COLLABORATE</span>
                     </div>
 
                     {/* Stage 1: CREATE */}
                     <StageBlock
                       stageKey="create"
                       stageNumber={1}
-                      title="Create: Analyzer & Code Generator"
-                      description="Parses requirements, generates decoupled React + FastAPI codebase, SQLite database models, and interactive preview."
+                      title="CREATE"
+                      description="Requirements analysis, architecture planning, technology selection, and full-stack source code generation."
                       status={getStageStatus('create')}
                       tasks={tasks}
                       requirements={requirements}
@@ -714,8 +785,8 @@ export default function Workspace({ onBackToLanding }) {
                     <StageBlock
                       stageKey="test"
                       stageNumber={2}
-                      title="Test: Evaluator Agent (Static Validation)"
-                      description="Generates pytest automated test suite and executes 9-point static AST syntax and API contract verification."
+                      title="TEST"
+                      description="Syntax validation, API contract verification, dependency checks, and automated project integrity testing."
                       status={getStageStatus('test')}
                       tasks={tasks}
                       requirements={requirements}
@@ -728,8 +799,8 @@ export default function Workspace({ onBackToLanding }) {
                     <StageBlock
                       stageKey="deploy"
                       stageNumber={3}
-                      title="Deploy: Production Deployment Blueprints"
-                      description="Generates Dockerfile, render.yaml, vercel.json, and GitHub Actions CI workflow for zero-config cloud deployments."
+                      title="DEPLOY"
+                      description="Production configuration, Dockerfile, cloud deployment blueprints (Render, Vercel), and CI/CD workflow generation."
                       status={getStageStatus('deploy')}
                       tasks={tasks}
                       requirements={requirements}
@@ -741,8 +812,8 @@ export default function Workspace({ onBackToLanding }) {
                     <StageBlock
                       stageKey="collaborate"
                       stageNumber={4}
-                      title="Collaborate: PR Summary & Code Review"
-                      description="Generates comprehensive README, formal Pull Request description, semantic changelog, and senior engineer code review assessment."
+                      title="COLLABORATE"
+                      description="README generation, pull request description, change summary, code review, and developer handoff documentation."
                       status={getStageStatus('collaborate')}
                       tasks={tasks}
                       requirements={requirements}
@@ -897,14 +968,21 @@ export default function Workspace({ onBackToLanding }) {
               overflow: 'hidden',
             }}
           >
-            <RightPanelTabs
-              workflowId={activeWorkflow?.workflow_id}
-              artifacts={artifacts}
-              evaluation={evaluation}
-              requirements={requirements}
-              tasks={tasks}
-              logs={logs}
-            />
+          <RightPanelTabs
+            workflowId={activeWorkflow?.workflow_id}
+            artifacts={artifacts}
+            evaluation={evaluation}
+            requirements={requirements}
+            tasks={tasks}
+            logs={logs}
+            stageStatuses={{
+              create: getStageStatus('create'),
+              test: getStageStatus('test'),
+              deploy: getStageStatus('deploy'),
+              collaborate: getStageStatus('collaborate'),
+            }}
+            activeWorkflow={activeWorkflow}
+          />
           </aside>
         )}
       </div>

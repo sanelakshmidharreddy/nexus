@@ -606,3 +606,10 @@ code, pre, .font-mono {
     padding: 16px !important;
   }
 }
+
+/* AgentGraph running node pulse animation */
+@keyframes nexus-progress-bar {
+  0%   { width: 0%; left: 0; }
+  50%  { width: 70%; left: 15%; }
+  100% { width: 0%; left: 100%; }
+}
