@@ -211,6 +211,80 @@ def run_workflow_sync(workflow_id: str, controlled_failure_demo: bool = False) -
                         "success",
                     )
 
+                elif agent == "deploy":
+                    _emit_event(
+                        workflow_id,
+                        task_id,
+                        agent,
+                        "DEPLOY_STARTED",
+                        "Deploy Agent preparing production configuration and deployment blueprints...",
+                        "running",
+                    )
+                    deploy_files = ["Dockerfile", "render.yaml", "vercel.json", ".github/workflows/deploy.yml"]
+                    artifacts = workspace_tools.list_directory(workflow_id)
+                    artifact_paths = {f["path"].replace("\\", "/") for f in artifacts}
+                    missing_deploy = [f for f in deploy_files if f not in artifact_paths]
+                    if missing_deploy:
+                        raise ValueError(f"Missing deployment files: {', '.join(missing_deploy)}")
+                    out_text = f"Deployment Ready: {len(deploy_files)} deployment assets verified (Dockerfile, render.yaml, vercel.json, CI workflow)."
+                    current_task.output = out_text
+                    current_task.status = "success"
+                    completed_task_ids.add(task_id)
+                    db.update_task_state(workflow_id, task_id, status="success", output=out_text)
+                    _emit_event(
+                        workflow_id,
+                        task_id,
+                        agent,
+                        "DEPLOY_READY",
+                        out_text,
+                        "success",
+                    )
+                    _emit_event(
+                        workflow_id,
+                        task_id,
+                        agent,
+                        "TASK_COMPLETED",
+                        f"Task {task_id} completed: {current_task.title}",
+                        "success",
+                    )
+
+                elif agent == "collaborate":
+                    _emit_event(
+                        workflow_id,
+                        task_id,
+                        agent,
+                        "COLLABORATION_STARTED",
+                        "Collaborate Agent generating documentation and developer handoff materials...",
+                        "running",
+                    )
+                    collab_files = ["README.md", "PULL_REQUEST.md", "CHANGELOG.md", "CODE_REVIEW.md", "DEPLOY.md"]
+                    artifacts = workspace_tools.list_directory(workflow_id)
+                    artifact_paths = {f["path"].replace("\\", "/") for f in artifacts}
+                    missing_collab = [f for f in collab_files if f not in artifact_paths]
+                    if missing_collab:
+                        raise ValueError(f"Missing collaboration files: {', '.join(missing_collab)}")
+                    out_text = f"Collaboration Ready: {len(collab_files)} documentation assets verified (README, PR summary, changelog, code review, deploy guide)."
+                    current_task.output = out_text
+                    current_task.status = "success"
+                    completed_task_ids.add(task_id)
+                    db.update_task_state(workflow_id, task_id, status="success", output=out_text)
+                    _emit_event(
+                        workflow_id,
+                        task_id,
+                        agent,
+                        "COLLABORATION_READY",
+                        out_text,
+                        "success",
+                    )
+                    _emit_event(
+                        workflow_id,
+                        task_id,
+                        agent,
+                        "TASK_COMPLETED",
+                        f"Task {task_id} completed: {current_task.title}",
+                        "success",
+                    )
+
                 elif agent in ("evaluator", "qa"):
                     _emit_event(
                         workflow_id,
