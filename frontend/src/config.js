@@ -38,8 +38,8 @@ function resolveApiBase() {
     // In production, reject localhost values to prevent accidental loopback binding
     const isEnvLocal = /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(trimmedEnv);
     if (!isLocalEnv && isEnvLocal) {
-      console.warn('[NEXUS] Production build detected local API URL. Ignoring localhost in production.');
-      return '';
+      console.warn('[NEXUS] Production build detected local API URL. Falling back to Render backend.');
+      return 'https://nexus-backend-1diy.onrender.com';
     }
     return trimmedEnv;
   }
@@ -49,8 +49,8 @@ function resolveApiBase() {
     return 'http://localhost:8000';
   }
 
-  // Production with no VITE_API_URL configured: never default to localhost
-  return '';
+  // Production fallback: default to Render backend
+  return 'https://nexus-backend-1diy.onrender.com';
 }
 
 export const API_BASE = resolveApiBase();
