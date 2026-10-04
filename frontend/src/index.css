@@ -1,3 +1,5 @@
+@import './workspace.css';
+
 /* ==========================================================================
    NEXUS AI Developer Orchestrator — Professional Design System
    Light-first with dark mode, CSS variables, refined animations
@@ -415,6 +417,7 @@ code, pre, .font-mono {
 }
 .nav-tab.active::after {
   width: 80%;
+}
 
 /* --------------------------------------------------------------------------
    Precision Data Visualization Hover & Micro-Depth
@@ -648,11 +651,4 @@ code, pre, .font-mono {
     padding: 8px 10px;
     font-size: 0.72rem;
   }
-}
-}
-/* AgentGraph running node pulse animation */
-@keyframes nexus-progress-bar {
-  0%   { width: 0%; left: 0; }
-  50%  { width: 70%; left: 15%; }
-  100% { width: 0%; left: 100%; }
 }
