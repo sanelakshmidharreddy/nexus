@@ -67,7 +67,9 @@ def get_ollama_host() -> str:
 
 
 def clean_json_text(raw: str) -> str:
-    """Extract valid JSON from markdown fences or text wrappers."""
+    """Extract valid JSON from markdown fences or text wrappers with truncation detection."""
+    if not raw or not raw.strip():
+        return "{}"
     cleaned = raw.strip()
     fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
     if fence_match:
@@ -79,17 +81,23 @@ def clean_json_text(raw: str) -> str:
         end_brace = cleaned.rfind("}")
         if end_brace != -1:
             cleaned = cleaned[start_brace:end_brace + 1]
+        else:
+            logger.warning("Detected potentially truncated JSON response from LLM (missing closing brace).")
+            cleaned = cleaned[start_brace:] + "\n}"
     elif start_bracket != -1:
         end_bracket = cleaned.rfind("]")
         if end_bracket != -1:
             cleaned = cleaned[start_bracket:end_bracket + 1]
+        else:
+            logger.warning("Detected potentially truncated JSON response from LLM (missing closing bracket).")
+            cleaned = cleaned[start_bracket:] + "\n]"
 
     cleaned = re.sub(r",\s*([\]}])", r"\1", cleaned)
     return cleaned.strip()
 
 
 def call_omniroute(prompt: str, system: str = "") -> str:
-    """Send chat completion request to OmniRoute OpenAI-compatible gateway with 1 retry on 429/timeout."""
+    """Send chat completion request to OmniRoute OpenAI-compatible gateway with 1 retry on 429/5xx/timeout."""
     base_url = os.environ.get("OMNIROUTE_BASE_URL", "http://localhost:20128/v1").rstrip("/")
     api_key = os.environ.get("OMNIROUTE_API_KEY", "").strip()
     model_name = get_configured_model()
@@ -110,7 +118,6 @@ def call_omniroute(prompt: str, system: str = "") -> str:
         "temperature": 0.2,
     }
 
-    # Attempt call with 1 retry on 429 or timeout
     max_attempts = 2
     for attempt in range(1, max_attempts + 1):
         try:
@@ -120,22 +127,29 @@ def call_omniroute(prompt: str, system: str = "") -> str:
                     logger.warning("OmniRoute rate limit (429) hit, retrying in 1.5s...")
                     time.sleep(1.5)
                     continue
-                raise ModelRateLimitError("OmniRoute rate limit exceeded (429). Please try again in a moment.")
+                raise ModelRateLimitError("OmniRoute rate limit exceeded (429). Please retry in a moment.")
             
+            if res.status_code in (500, 502, 503, 504):
+                if attempt < max_attempts:
+                    logger.warning(f"OmniRoute server error ({res.status_code}), retrying once...")
+                    time.sleep(1.0)
+                    continue
+                raise ModelConnectionError(f"OmniRoute provider temporary error ({res.status_code}).")
+
             res.raise_for_status()
             data = res.json()
             choices = data.get("choices", [])
             if choices and "message" in choices[0] and "content" in choices[0]["message"]:
                 return choices[0]["message"]["content"]
-            raise ModelConnectionError(f"OmniRoute returned unexpected response schema: {data}")
+            raise ModelConnectionError("OmniRoute returned unexpected response payload structure.")
         except requests.Timeout:
             if attempt < max_attempts:
-                logger.warning("OmniRoute timeout, retrying once...")
+                logger.warning("OmniRoute request timed out, retrying once...")
                 time.sleep(1.0)
                 continue
             raise ModelConnectionError("OmniRoute request timed out after retry.")
         except requests.RequestException as e:
-            if attempt < max_attempts and getattr(e.response, "status_code", None) == 429:
+            if attempt < max_attempts and getattr(e.response, "status_code", None) in (429, 500, 502, 503, 504):
                 time.sleep(1.5)
                 continue
             raise ModelConnectionError(f"OmniRoute connection failed: {e}")

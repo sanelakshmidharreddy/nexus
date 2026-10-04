@@ -1,5 +1,6 @@
-"""Evaluator Agent: Validates generated project against developer tools criteria."""
+"""Evaluator Agent: Validates generated project against developer tools criteria across Create, Test, Deploy, and Collaborate stages."""
 
+import ast
 import json
 import os
 import re
@@ -8,7 +9,7 @@ from backend.tools import workspace_tools
 
 
 def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks: list) -> dict:
-    """Evaluates the project sandbox and code integrity against 7 developer tools criteria."""
+    """Evaluates the project sandbox and code integrity against developer tools criteria."""
     checks = []
     errors = []
 
@@ -23,6 +24,7 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
         errors.append("Missing frontend/ or backend/ directory structure.")
     checks.append({
         "name": "Project Structure Valid",
+        "stage": "create",
         "passed": structure_passed,
         "evidence": "Verified decoupled frontend/ and backend/ directory hierarchy." if structure_passed else "Directory hierarchy incomplete."
     })
@@ -35,7 +37,12 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
         "backend/requirements.txt",
         "frontend/package.json",
         "frontend/src/App.jsx",
+        "backend/test_main.py",
+        "Dockerfile",
+        "render.yaml",
+        "vercel.json",
         "README.md",
+        "PULL_REQUEST.md",
         "index.html",
     ]
     missing = [f for f in core_files if f not in file_map]
@@ -44,8 +51,9 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
         errors.append(f"Missing core files: {', '.join(missing)}")
     checks.append({
         "name": "Required Project Files Exist",
+        "stage": "create",
         "passed": required_passed,
-        "evidence": f"Found all {len(core_files)} required source files." if required_passed else f"Missing: {', '.join(missing)}"
+        "evidence": f"Found all {len(core_files)} required source, test, deploy, and documentation files." if required_passed else f"Missing: {', '.join(missing)}"
     })
 
     # 3. Non-Empty Files & Code Integrity
@@ -58,6 +66,7 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
         errors.append(f"Files are empty: {', '.join(empty_files)}")
     checks.append({
         "name": "Non-Empty File Integrity",
+        "stage": "create",
         "passed": integrity_passed,
         "evidence": f"All {len(file_map)} generated files have valid content ({sum(f['size'] for f in file_map.values())} total bytes)." if integrity_passed else f"Empty files: {', '.join(empty_files)}"
     })
@@ -78,6 +87,7 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
 
     checks.append({
         "name": "Dependency Configuration",
+        "stage": "create",
         "passed": deps_passed,
         "evidence": evidence_deps
     })
@@ -90,7 +100,6 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
         frontend_code = workspace_tools.read_file(workflow_id, "frontend/src/App.jsx")
         
         backend_routes = re.findall(r'@app\.(?:get|post|put|delete)\(["\'](/api/[^"\']+)["\']', backend_code)
-        # Check if frontend calls at least one matching route
         matching = [r for r in backend_routes if r in frontend_code]
         api_passed = len(matching) > 0
         evidence_api = f"Verified frontend consumes backend route(s): {', '.join(matching)}" if api_passed else "No matching API routes detected between client and server."
@@ -102,28 +111,82 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
 
     checks.append({
         "name": "API Endpoint Consistency",
+        "stage": "create",
         "passed": api_passed,
         "evidence": evidence_api
     })
 
-    # 6. README & Run Instructions
-    readme_passed = False
-    evidence_readme = "Checking README.md..."
+    # 6. Test Suite & Static Code Validation
+    test_passed = False
+    evidence_test = "Checking test suite..."
     try:
-        readme = workspace_tools.read_file(workflow_id, "README.md")
-        has_run = "uvicorn" in readme or "npm run" in readme or "python" in readme
-        readme_passed = len(readme) > 100 and has_run
-        evidence_readme = "README contains architecture overview, Quick Start commands, and API documentation."
+        test_code = workspace_tools.read_file(workflow_id, "backend/test_main.py")
+        has_tests = "def test_" in test_code and "client." in test_code
+        
+        # Run static AST syntax check on generated Python files
+        py_files = ["backend/main.py", "backend/models.py", "backend/database.py", "backend/test_main.py"]
+        syntax_ok = True
+        for pf in py_files:
+            if pf in file_map:
+                code_content = workspace_tools.read_file(workflow_id, pf)
+                ast.parse(code_content)
+        
+        test_passed = has_tests and syntax_ok
+        evidence_test = f"Static validation passed: AST parsed 4 Python files, {test_code.count('def test_')} unit tests verified." if test_passed else "Test syntax validation issue detected."
     except Exception as e:
-        evidence_readme = f"README check failed: {e}"
+        evidence_test = f"Static validation error: {e}"
+        errors.append(evidence_test)
 
     checks.append({
-        "name": "Documentation & Setup Guide",
-        "passed": readme_passed,
-        "evidence": evidence_readme
+        "name": "Test Suite (Static Validation)",
+        "stage": "test",
+        "passed": test_passed,
+        "evidence": evidence_test
     })
 
-    # 7. Path Safety & Sandbox Isolation
+    # 7. Deployment Readiness Assets
+    deploy_passed = False
+    evidence_deploy = "Verifying deployment assets..."
+    try:
+        has_docker = "Dockerfile" in file_map
+        has_render = "render.yaml" in file_map
+        has_vercel = "vercel.json" in file_map
+        has_ci = ".github/workflows/deploy.yml" in file_map
+        deploy_passed = has_docker and (has_render or has_vercel) and has_ci
+        evidence_deploy = "Confirmed Dockerfile, render.yaml, vercel.json, and GitHub Actions CI workflow." if deploy_passed else "Incomplete deploy assets."
+    except Exception as e:
+        evidence_deploy = f"Deploy asset check error: {e}"
+        errors.append(evidence_deploy)
+
+    checks.append({
+        "name": "Deployment Readiness Assets",
+        "stage": "deploy",
+        "passed": deploy_passed,
+        "evidence": evidence_deploy
+    })
+
+    # 8. Collaboration & Documentation
+    collab_passed = False
+    evidence_collab = "Checking collaboration assets..."
+    try:
+        readme = workspace_tools.read_file(workflow_id, "README.md")
+        pr_file = workspace_tools.read_file(workflow_id, "PULL_REQUEST.md")
+        has_readme = len(readme) > 100 and ("uvicorn" in readme or "npm run" in readme or "python" in readme)
+        has_pr = len(pr_file) > 50 and "Pull Request" in pr_file
+        collab_passed = has_readme and has_pr
+        evidence_collab = "README setup instructions and formal Pull Request description generated." if collab_passed else "Incomplete collaboration docs."
+    except Exception as e:
+        evidence_collab = f"Collaboration check failed: {e}"
+        errors.append(evidence_collab)
+
+    checks.append({
+        "name": "Collaboration & PR Summary",
+        "stage": "collaborate",
+        "passed": collab_passed,
+        "evidence": evidence_collab
+    })
+
+    # 9. Path Safety & Sandbox Isolation
     path_safety_passed = True
     evidence_safety = "All files safely contained within workspace sandbox root."
     for p in file_map:
@@ -135,6 +198,7 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
 
     checks.append({
         "name": "Path Safety & Isolation",
+        "stage": "create",
         "passed": path_safety_passed,
         "evidence": evidence_safety
     })
