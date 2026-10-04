@@ -164,7 +164,7 @@ export default function Header({
               fontFamily: 'var(--font-mono)',
               textTransform: 'uppercase',
             }}>
-              AI AGENT ORCHESTRATOR
+              AI DEVELOPER ORCHESTRATOR
             </span>
           </div>
 

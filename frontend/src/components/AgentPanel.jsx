@@ -1,7 +1,9 @@
-import React from 'react';
-import { Search, Compass, Code2, ShieldCheck, Check, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, Compass, Code2, ShieldCheck, Check, AlertTriangle, RefreshCw, ChevronDown, ChevronRight, FileCode, Layers, Server, Database, Globe, CheckCircle2, XCircle } from 'lucide-react';
 
-export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedAgentId = null }) {
+export default function AgentPanel({ tasks = [], requirements = null, artifacts = [], evaluation = null, events = [] }) {
+  const [expandedAgent, setExpandedAgent] = useState(null);
+
   const agents = [
     {
       id: 'analyzer',
@@ -104,6 +106,197 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
     };
   };
 
+  const toggleExpand = (agentId) => {
+    setExpandedAgent(prev => prev === agentId ? null : agentId);
+  };
+
+  const renderAgentDetails = (agentId) => {
+    if (agentId === 'analyzer') {
+      const features = requirements?.requested_features || [];
+      const constraints = requirements?.constraints || [];
+      const tech = requirements?.technologies_identified || {};
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border-subtle)' }}>
+          {features.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                FEATURES IDENTIFIED ({features.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {features.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', fontSize: '0.74rem', color: 'var(--text-primary)' }}>
+                    <CheckCircle2 size={11} style={{ color: 'var(--state-success)', marginTop: '2px', flexShrink: 0 }} />
+                    <span>{f}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {constraints.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                CONSTRAINTS ({constraints.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {constraints.map((c, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--state-warning)', fontWeight: 700 }}>•</span>
+                    <span>{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {tech.frontend && (
+            <div>
+              <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                TECHNOLOGIES IDENTIFIED
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                <span style={{ padding: '3px 8px', borderRadius: '3px', background: 'var(--state-running-bg)', border: '1px solid var(--state-running-border)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--state-running-text)' }}>
+                  <Globe size={10} style={{ display: 'inline', marginRight: '3px' }} />{tech.frontend}
+                </span>
+                <span style={{ padding: '3px 8px', borderRadius: '3px', background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: '#166534' }}>
+                  <Server size={10} style={{ display: 'inline', marginRight: '3px' }} />{tech.backend}
+                </span>
+                <span style={{ padding: '3px 8px', borderRadius: '3px', background: '#fffbeb', border: '1px solid #fde68a', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: '#92400e' }}>
+                  <Database size={10} style={{ display: 'inline', marginRight: '3px' }} />{tech.database}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (agentId === 'planner') {
+      const plan = requirements?.execution_plan || {};
+      const apis = plan.apis || requirements?.technologies_identified?.apis || [];
+      const features = plan.features || requirements?.requested_features || [];
+      const structure = plan.project_structure || [];
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border-subtle)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
+            <div style={{ padding: '8px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>FRONTEND</div>
+              <div style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>{plan.frontend || requirements?.technologies_identified?.frontend || 'React 18 + Vite'}</div>
+            </div>
+            <div style={{ padding: '8px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>BACKEND</div>
+              <div style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>{plan.backend || requirements?.technologies_identified?.backend || 'FastAPI (Python)'}</div>
+            </div>
+            <div style={{ padding: '8px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>DATABASE</div>
+              <div style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>{plan.database || requirements?.technologies_identified?.database || 'SQLite'}</div>
+            </div>
+          </div>
+          {apis.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                API CONTRACTS ({apis.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {apis.map((api, i) => (
+                  <div key={i} style={{ padding: '4px 8px', borderRadius: '3px', background: 'var(--bg-canvas)', border: '1px solid var(--border-subtle)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+                    {api}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {structure.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                PROJECT STRUCTURE
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {structure.map((s, i) => (
+                  <span key={i} style={{ padding: '2px 6px', borderRadius: '3px', background: 'var(--bg-surface-secondary)', fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (agentId === 'code_generator') {
+      const files = artifacts || [];
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ padding: '6px 12px', borderRadius: '4px', background: 'var(--state-success-bg)', border: '1px solid var(--state-success-border)' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--state-success-text)', fontFamily: 'var(--font-mono)' }}>{files.length}</span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--state-success-text)', marginLeft: '4px' }}>files generated</span>
+            </div>
+          </div>
+          {files.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                GENERATED FILES
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '200px', overflowY: 'auto' }}>
+                {files.map((f, i) => {
+                  const name = typeof f === 'string' ? f : f.path || f.name;
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 6px', borderRadius: '3px', background: 'var(--bg-canvas)', fontSize: '0.7rem', fontFamily: 'var(--font-mono)' }}>
+                      <FileCode size={10} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      <span style={{ color: 'var(--text-primary)' }}>{name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (agentId === 'evaluator') {
+      const checks = evaluation?.checks || [];
+      const score = evaluation?.score;
+      const passed = evaluation?.passed;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border-subtle)' }}>
+          {score !== undefined && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ padding: '6px 12px', borderRadius: '4px', background: passed ? 'var(--state-success-bg)' : 'var(--state-failure-bg)', border: `1px solid ${passed ? 'var(--state-success-border)' : 'var(--state-failure-border)'}` }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: passed ? 'var(--state-success-text)' : 'var(--state-failure-text)', fontFamily: 'var(--font-mono)' }}>{score}%</span>
+                <span style={{ fontSize: '0.7rem', color: passed ? 'var(--state-success-text)' : 'var(--state-failure-text)', marginLeft: '4px' }}>{passed ? 'PASSED' : 'FAILED'}</span>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                {evaluation?.passed_checks || 0}/{evaluation?.total_checks || 0} checks passed
+              </span>
+            </div>
+          )}
+          {checks.length > 0 && (
+            <div>
+              <div style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                VALIDATION CHECKS
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {checks.map((chk, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem' }}>
+                    {chk.passed ? (
+                      <CheckCircle2 size={11} style={{ color: 'var(--state-success)', flexShrink: 0 }} />
+                    ) : (
+                      <XCircle size={11} style={{ color: 'var(--state-failure)', flexShrink: 0 }} />
+                    )}
+                    <span style={{ color: chk.passed ? 'var(--text-primary)' : 'var(--state-failure-text)' }}>{chk.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="panel" style={{ background: '#ffffff', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)' }}>
       <div className="panel-header" style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -116,15 +309,15 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
       </div>
 
       <div className="panel-body" style={{ padding: '16px' }}>
-        <div style={{
+        <div className="agent-panel-grid" style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: '14px',
         }}>
-          {agents.map((agentDef, index) => {
+          {agents.map((agentDef) => {
             const state = getAgentState(agentDef);
             const Icon = agentDef.icon;
-            const isSelected = selectedAgentId === agentDef.id;
+            const isExpanded = expandedAgent === agentDef.id;
 
             let cardBorder = 'var(--border-subtle)';
             let cardBg = '#ffffff';
@@ -153,7 +346,7 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
             return (
               <div
                 key={agentDef.id}
-                onClick={() => onSelectAgent && onSelectAgent(agentDef.id)}
+                onClick={() => toggleExpand(agentDef.id)}
                 style={{
                   padding: '16px',
                   borderRadius: 'var(--radius-sm)',
@@ -162,7 +355,7 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '10px',
-                  cursor: onSelectAgent ? 'pointer' : 'default',
+                  cursor: 'pointer',
                   transition: 'all 180ms ease',
                   position: 'relative',
                   boxShadow: state.status === 'RUNNING' ? '0 0 0 2px rgba(37,99,235,0.1)' : 'none',
@@ -212,6 +405,13 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
                 }}>
                   {state.subtitle}
                 </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.68rem', color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>
+                  {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                  <span>{isExpanded ? 'COLLAPSE' : 'EXPAND'}</span>
+                </div>
+
+                {isExpanded && renderAgentDetails(agentDef.id)}
               </div>
             );
           })}

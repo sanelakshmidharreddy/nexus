@@ -134,6 +134,7 @@ def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks:
         test_passed = has_tests and syntax_ok
         evidence_test = f"Static validation passed: AST parsed 4 Python files, {test_code.count('def test_')} unit tests verified." if test_passed else "Test syntax validation issue detected."
     except Exception as e:
+        syntax_ok = False
         evidence_test = f"Static validation error: {e}"
         errors.append(evidence_test)
 
