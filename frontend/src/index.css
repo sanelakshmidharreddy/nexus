@@ -1,13 +1,7 @@
-@import './workspace.css';
-
 /* ==========================================================================
    NEXUS AI Developer Orchestrator — Professional Design System
    Light-first with dark mode, CSS variables, refined animations
    ========================================================================== */
-/* --------------------------------------------------------------------------
-   NEXUS AI Agent Orchestrator — Professional Light Theme Design System
-   Inspired by modern developer platforms, Google Cloud, and AI infrastructure
-   -------------------------------------------------------------------------- */
 
 :root {
   /* Light Theme (Default) */
@@ -419,19 +413,6 @@ code, pre, .font-mono {
   width: 80%;
 }
 
-/* --------------------------------------------------------------------------
-   Precision Data Visualization Hover & Micro-Depth
-   -------------------------------------------------------------------------- */
-
-.viz-chart-bar {
-  transform: translateY(0) scale(1);
-  transform-origin: bottom center;
-  transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 220ms ease, filter 220ms ease;
-  cursor: pointer;
-  position: relative;
-  outline: none;
-}
-
 /* Progress Bar */
 .progress-bar {
   height: 6px;
@@ -514,7 +495,11 @@ code, pre, .font-mono {
 .animate-drift-2 { animation-delay: 6s; }
 .animate-drift-3 { animation-delay: 12s; }
 
-/* Running pulse ring */
+@keyframes nexus-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); transform: scale(1); }
+  50% { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); transform: scale(1.02); }
+}
+
 @keyframes pulse-ring {
   0% { transform: scale(1); opacity: 0.6; }
   100% { transform: scale(1.3); opacity: 0; }
@@ -615,10 +600,6 @@ code, pre, .font-mono {
 }
 
 /* Responsive */
-/* --------------------------------------------------------------------------
-   Responsive Command Center Layout
-   -------------------------------------------------------------------------- */
-
 @media (max-width: 1200px) {
   .command-center-grid {
     grid-template-columns: 1fr !important;

@@ -74,35 +74,40 @@ export default function App() {
     if (route === '/app' && currentRoute === '/') {
       setTargetRoute('/app');
       setTransitionState('landing-out');
-      if (typeof window !== 'undefined') window.history.pushState(null, '', '/app');
       setTimeout(() => {
         setTransitionState('splash');
         runHealthCheckWithRetry();
-      }, 400);
+      }, 350);
     } else if (route === '/' && currentRoute === '/app') {
       setTransitionState('workspace-out');
-      if (typeof window !== 'undefined') window.history.pushState(null, '', '/');
       setTimeout(() => {
         setCurrentRoute('/');
+        if (typeof window !== 'undefined') window.history.pushState(null, '', '/');
         setTransitionState('idle');
       }, 300);
     }
   };
 
+  const forceEnterWorkspace = useCallback(() => {
+    setTransitionState('workspace-in');
+    setTimeout(() => {
+      setCurrentRoute('/app');
+      if (typeof window !== 'undefined') window.history.pushState(null, '', '/app');
+      setTransitionState('idle');
+      setTargetRoute(null);
+    }, 400);
+  }, []);
+
   useEffect(() => {
     if (transitionState === 'splash' && healthCheckStatus === 'success') {
-      setTransitionState('workspace-in');
-      setTimeout(() => {
-        setCurrentRoute('/app');
-        setTransitionState('idle');
-        setTargetRoute(null);
-      }, 400);
+      forceEnterWorkspace();
     }
-  }, [healthCheckStatus, transitionState]);
+  }, [healthCheckStatus, transitionState, forceEnterWorkspace]);
 
   const handleRetry = () => {
     runHealthCheckWithRetry();
   };
+
 
   const renderTransitionOverlay = () => {
     if (transitionState === 'idle') return null;
@@ -123,55 +128,15 @@ export default function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: isLandingOut || isWorkspaceOut ? 0.95 : isSplash || isWorkspaceIn ? 1 : 0,
-          transform: isLandingOut ? 'scale(1)' : isWorkspaceOut ? 'scale(1)' : isSplash ? 'scale(1)' : 'scale(0.98)',
+          opacity: isLandingOut || isWorkspaceOut ? 1 : isSplash || isWorkspaceIn ? 1 : 0,
+          transform: isLandingOut ? 'scale(1)' : isWorkspaceOut ? 'scale(1)' : isSplash ? 'scale(1)' : 'scale(0.95)',
           transition: 'opacity 400ms cubic-bezier(0.22, 1, 0.36, 1), transform 400ms cubic-bezier(0.22, 1, 0.36, 1)',
-          overflow: 'hidden',
         }}
         aria-hidden={!isSplash}
       >
-        {/* Blue and purple light sweep glow */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            overflow: 'hidden',
-          }}
-          aria-hidden="true"
-        >
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              width: '600px',
-              height: '600px',
-              transform: 'translate(-50%, -50%)',
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(59, 130, 246, 0.25) 0%, rgba(139, 92, 246, 0.2) 45%, transparent 70%)',
-              filter: 'blur(60px)',
-              animation: 'nexus-glow-pulse 2s ease-in-out infinite alternate',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: '-100%',
-              width: '300%',
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent 20%, rgba(59, 130, 246, 0.15) 45%, rgba(139, 92, 246, 0.2) 50%, rgba(6, 182, 212, 0.15) 55%, transparent 80%)',
-              animation: 'nexus-light-sweep 1.6s ease-in-out infinite',
-            }}
-          />
-        </div>
-
         {isSplash && (
           <div
             style={{
-              position: 'relative',
-              zIndex: 2,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -185,17 +150,15 @@ export default function App() {
           >
             <div
               style={{
-                width: '68px',
-                height: '68px',
-                borderRadius: '16px',
-                background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
-                border: '1px solid rgba(59, 130, 246, 0.4)',
-                boxShadow: '0 0 24px rgba(59, 130, 246, 0.4)',
+                width: '64px',
+                height: '64px',
+                borderRadius: '14px',
+                background: '#0f172a',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 800,
-                fontSize: '1.6rem',
+                fontSize: '1.5rem',
                 fontFamily: 'var(--font-mono)',
                 color: '#ffffff',
                 animation: 'nexus-pulse 2s ease-in-out infinite',
@@ -207,10 +170,10 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
               <div
                 style={{
-                  fontSize: '1.15rem',
-                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
                   color: 'var(--text-primary)',
-                  letterSpacing: '-0.02em',
+                  letterSpacing: '-0.01em',
                 }}
               >
                 {healthCheckStatus === 'checking' && healthCheckRetries > 0
@@ -219,15 +182,34 @@ export default function App() {
                   ? 'Connecting to orchestrator...'
                   : healthCheckStatus === 'failed'
                   ? 'Connection Failed'
-                  : 'Orchestrator Online'}
+                  : 'Connected'}
               </div>
 
               {healthCheckStatus === 'checking' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Loader2 size={18} className="spin" style={{ color: 'var(--state-running)' }} />
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {healthCheckRetries > 0 ? `Retry ${healthCheckRetries}/10` : 'Establishing connection...'}
-                  </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Loader2 size={18} className="spin" style={{ color: 'var(--state-running)' }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      {healthCheckRetries > 0 ? `Retry ${healthCheckRetries}/10` : 'Establishing connection...'}
+                    </span>
+                  </div>
+                  {healthCheckRetries >= 2 && (
+                    <button
+                      onClick={forceEnterWorkspace}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: 'var(--text-secondary)',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        marginTop: '4px',
+                      }}
+                    >
+                      Continue to Workspace →
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -237,46 +219,82 @@ export default function App() {
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '320px' }}>
                     {healthCheckError}
                   </span>
-                  <button
-                    onClick={handleRetry}
-                    className="btn-primary"
-                    style={{
-                      padding: '10px 20px',
-                      fontSize: '0.85rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <RotateCcw size={14} /> Retry Connection
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={handleRetry}
+                      className="btn-primary"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <RotateCcw size={14} /> Retry
+                    </button>
+                    <button
+                      onClick={forceEnterWorkspace}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-primary)',
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Enter Offline
+                    </button>
+                  </div>
                 </div>
               )}
 
               {healthCheckStatus === 'success' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--state-success-text)', fontSize: '0.85rem', fontWeight: 600 }}>
-                  <Server size={16} /> Orchestrator online · Launching workspace
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--state-success-text)', fontSize: '0.85rem', fontWeight: 500 }}>
+                  <Server size={16} /> Orchestrator online
                 </div>
               )}
             </div>
           </div>
         )}
 
-        <style>{`
+        {/* Blue and purple light sweep beam during transition */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            zIndex: 1,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: '-50%',
+              left: '-50%',
+              width: '200%',
+              height: '200%',
+              background: 'linear-gradient(115deg, transparent 35%, rgba(59, 130, 246, 0.12) 48%, rgba(139, 92, 246, 0.14) 52%, transparent 65%)',
+              animation: 'nexus-light-sweep 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite',
+            }}
+          />
+        </div>
+
+        <style jsx>{`
           @keyframes nexus-pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.45); transform: scale(1); }
-            50% { box-shadow: 0 0 0 18px rgba(37, 99, 235, 0); transform: scale(1.02); }
+            0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); transform: scale(1); }
+            50% { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); transform: scale(1.02); }
           }
           @keyframes nexus-light-sweep {
-            0% { transform: translateX(-40%); }
-            100% { transform: translateX(40%); }
-          }
-          @keyframes nexus-glow-pulse {
-            0% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); }
-            100% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+            0% { transform: translateY(-30%) rotate(0deg); opacity: 0; }
+            40% { opacity: 0.8; }
+            100% { transform: translateY(30%) rotate(0deg); opacity: 0; }
           }
           @media (prefers-reduced-motion: reduce) {
-            .nexus-pulse, .nexus-light-sweep, .nexus-glow-pulse { animation: none !important; }
+            .nexus-pulse, .nexus-light-sweep { animation: none !important; }
           }
         `}</style>
       </div>
@@ -285,28 +303,17 @@ export default function App() {
 
   if (currentRoute === '/app') {
     return (
-      <div style={{
-        opacity: transitionState === 'workspace-out' ? 0.4 : 1,
-        transform: transitionState === 'workspace-out' ? 'scale(0.98)' : 'scale(1)',
-        transition: 'opacity 300ms ease, transform 300ms ease',
-        height: '100vh',
-        overflow: 'hidden',
-      }}>
+      <>
         <Workspace onBackToLanding={() => navigateTo('/')} />
         {renderTransitionOverlay()}
-      </div>
+      </>
     );
   }
 
   return (
-    <div style={{
-      opacity: transitionState === 'landing-out' ? 0.4 : 1,
-      transform: transitionState === 'landing-out' ? 'scale(0.98)' : 'scale(1)',
-      transition: 'opacity 400ms ease, transform 400ms ease',
-      minHeight: '100vh',
-    }}>
+    <>
       <LandingPage onOpenApp={() => navigateTo('/app')} />
       {renderTransitionOverlay()}
-    </div>
+    </>
   );
-}
+}
