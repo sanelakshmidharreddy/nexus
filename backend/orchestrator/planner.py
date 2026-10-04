@@ -106,6 +106,22 @@ def plan(requirements: dict, prefer_deterministic: bool = False) -> list[Task]:
             dependencies=["T5"],
             status="pending",
         ),
+        Task(
+            task_id="T7",
+            title="Deployment Configuration & Production Readiness",
+            description="Generate Dockerfile, render.yaml, vercel.json, CI/CD workflow, and verify deployment environment configuration.",
+            assigned_agent="deploy",
+            dependencies=["T6"],
+            status="pending",
+        ),
+        Task(
+            task_id="T8",
+            title="Documentation & Developer Handoff Preparation",
+            description="Generate README, pull request summary, changelog, code review notes, and prepare developer handoff documentation.",
+            assigned_agent="collaborate",
+            dependencies=["T7"],
+            status="pending",
+        ),
     ]
 
     validate_dag(tasks)

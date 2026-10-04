@@ -142,7 +142,7 @@ export default function GoalInput({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               <Sparkles size={14} style={{ color: 'var(--state-running)' }} />
-              <span>AI Pipeline: Analyzer → Planner → Code Gen → Evaluator</span>
+              <span>AI Pipeline: CREATE → TEST → DEPLOY → COLLABORATE</span>
             </div>
 
             <button
