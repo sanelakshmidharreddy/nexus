@@ -1,25 +1,43 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  Send,
   Sparkles,
-  Plus,
-  Sun,
-  Moon,
-  Loader2,
+  Terminal,
+  Clock,
+  CheckCircle2,
   AlertCircle,
-  RotateCcw,
-  PanelRightClose,
-  PanelRightOpen,
-  ArrowLeft,
+  Copy,
+  Check,
+  Download,
+  ExternalLink,
+  Eye,
+  FileCode,
+  Layers,
   Server,
-  Code,
+  Code2,
   ShieldCheck,
   Rocket,
   GitPullRequest,
-  CheckCircle2,
+  Users,
+  Compass,
+  Search,
+  Database,
+  Globe,
+  RefreshCw,
+  X,
 } from 'lucide-react';
-import StageBlock from '../components/StageBlock';
-import RightPanelTabs from '../components/RightPanelTabs';
+
+import Header from '../components/Header';
+import GoalInput from '../components/GoalInput';
+import AgentGraph from '../components/AgentGraph';
+import ExecutionPlanCard from '../components/ExecutionPlanCard';
+import EvaluationPanel from '../components/EvaluationPanel';
+import ProjectReadyBanner from '../components/ProjectReadyBanner';
+import ExecutionLog from '../components/ExecutionLog';
+import CompactRecoveryCard from '../components/CompactRecoveryCard';
+import AgentPanel from '../components/AgentPanel';
+import ProjectFilesView from '../components/ProjectFilesView';
+import RecoveryCenterView from '../components/RecoveryCenterView';
+import ExecutionView from '../components/ExecutionView';
 import { API_BASE, IS_API_CONFIGURED } from '../config';
 import { checkHealthWithRetry } from '../services/healthCheck';
 
@@ -27,10 +45,15 @@ export default function Workspace({ onBackToLanding }) {
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem('nexus_theme') || 'light');
 
-  // Health and Server Connectivity
+  // Navigation tab state: 'overview' | 'workflows' | 'agents' | 'execution' | 'recovery' | 'projects'
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Health and Telemetry Connectivity
   const [isOnline, setIsOnline] = useState(false);
-  const [isWakingUp, setIsWakingUp] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('CONNECTING');
   const [connectionMessage, setConnectionMessage] = useState('Checking orchestrator health...');
+  const [modelName, setModelName] = useState('gemini-3.8-flash');
+  const [providerMode, setProviderMode] = useState('live LLM');
   const [latency, setLatency] = useState(null);
 
   // Workflow State
@@ -42,23 +65,20 @@ export default function Workspace({ onBackToLanding }) {
   const [artifacts, setArtifacts] = useState([]);
   const [evaluation, setEvaluation] = useState(null);
 
-  // Chat Conversation State: array of messages [{ id, role: 'user' | 'assistant', text, stages, modifiedFiles, timestamp }]
-  const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState('');
-  const [demoMode, setDemoMode] = useState(false);
+  // Execution & Submit State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  // Logs
-  const [logs, setLogs] = useState([]);
+  // Elapsed Timer State
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // UI Panels
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // UI Toast & Modal State
+  const [copyToast, setCopyToast] = useState(false);
+  const [viewingFile, setViewingFile] = useState(null);
+  const [viewingFileContent, setViewingFileContent] = useState('');
+  const [loadingFileContent, setLoadingFileContent] = useState(false);
 
-  const lastEventCountRef = useRef(0);
   const pollIntervalRef = useRef(null);
-  const chatBottomRef = useRef(null);
 
   // Sync theme
   useEffect(() => {
@@ -70,46 +90,35 @@ export default function Workspace({ onBackToLanding }) {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  const addLog = (type, message) => {
-    setLogs((prev) => [
-      ...prev,
-      {
-        time: new Date().toLocaleTimeString(),
-        type,
-        message,
-      },
-    ]);
-  };
-
-  // 1. Health Probe with Cold-Start Detection
+  // 1. Health Probe with real latency and model telemetry
   useEffect(() => {
-    let timer = null;
     const probeHealth = async () => {
       try {
         const start = performance.now();
-        setIsWakingUp(true);
-        const res = await checkHealthWithRetry();
+        const res = await checkHealthWithRetry({ apiBase: API_BASE, maxRetries: 2, timeoutMs: 6000 });
         const ms = Math.round(performance.now() - start);
         setLatency(ms);
 
-        if (res.isHealthy) {
+        if (res.ok) {
           setIsOnline(true);
-          setIsWakingUp(false);
+          setConnectionStatus('CONNECTED');
+          if (res.data?.model) setModelName(res.data.model);
+          if (res.data?.mode) setProviderMode(res.data.mode);
           setConnectionMessage(`Connected (${ms}ms) • ${res.data?.provider || 'Live AI'}`);
         } else {
           setIsOnline(false);
-          setIsWakingUp(false);
-          setConnectionMessage(res.message || 'Waking up server (Render cold start)...');
+          setConnectionStatus('OFFLINE');
+          setConnectionMessage(res.message || 'Backend offline');
         }
       } catch (err) {
         setIsOnline(false);
-        setIsWakingUp(false);
-        setConnectionMessage('Waking up server...');
+        setConnectionStatus('OFFLINE');
+        setConnectionMessage(err.message || 'Connection error');
       }
     };
 
     probeHealth();
-    timer = setInterval(probeHealth, 15000);
+    const timer = setInterval(probeHealth, 15000);
     return () => clearInterval(timer);
   }, []);
 
@@ -125,7 +134,7 @@ export default function Workspace({ onBackToLanding }) {
         }
       }
     } catch (err) {
-      console.warn('Failed to load recent workflows:', err);
+      console.warn('Failed to load workflows:', err);
     }
   };
 
@@ -133,7 +142,7 @@ export default function Workspace({ onBackToLanding }) {
     fetchWorkflows();
   }, []);
 
-  // 3. Load Workflow State & Reconstruct Chat Thread
+  // 3. Load Workflow State & Real Events
   const loadWorkflow = async (workflowId) => {
     try {
       const res = await fetch(`${API_BASE}/workflows/${workflowId}`);
@@ -145,48 +154,21 @@ export default function Workspace({ onBackToLanding }) {
       setEvaluation(data.evaluation || null);
       setArtifacts(data.artifacts || []);
 
-      // Fetch events
+      // Fetch real events
       const evRes = await fetch(`${API_BASE}/workflows/${workflowId}/events`);
-      const evData = evRes.ok ? await evRes.json() : [];
-      setEvents(evData);
+      if (evRes.ok) {
+        const evData = await evRes.json();
+        setEvents(evData);
+      }
 
-      // Reconstruct messages thread for this workflow
-      const thread = [
-        {
-          id: `user-${workflowId}`,
-          role: 'user',
-          text: data.original_goal || 'Create project',
-          timestamp: data.created_at || new Date().toISOString(),
-        },
-        {
-          id: `assistant-${workflowId}`,
-          role: 'assistant',
-          workflowId: data.workflow_id,
-          status: data.status,
-          timestamp: data.updated_at || new Date().toISOString(),
-        },
-      ];
-
-      // Check for iterations in events
-      const modEvents = evData.filter((e) => e.event_type === 'MODIFICATION_STARTED');
-      modEvents.forEach((me, idx) => {
-        thread.push({
-          id: `user-mod-${idx}`,
-          role: 'user',
-          text: me.message.replace("Applying developer iteration: '", '').replace("'", ''),
-          timestamp: me.timestamp,
-        });
-        thread.push({
-          id: `assistant-mod-${idx}`,
-          role: 'assistant-mod',
-          text: `Applied iterative modification. Project files and evaluation re-verified.`,
-          timestamp: me.timestamp,
-        });
-      });
-
-      setMessages(thread);
+      // Fetch fresh artifacts list
+      const artRes = await fetch(`${API_BASE}/workflows/${workflowId}/artifacts`);
+      if (artRes.ok) {
+        const artData = await artRes.json();
+        setArtifacts(artData);
+      }
     } catch (err) {
-      console.warn('Failed to load workflow:', err);
+      console.warn('Failed to load workflow detail:', err);
     }
   };
 
@@ -218,16 +200,12 @@ export default function Workspace({ onBackToLanding }) {
           if (evRes.ok) {
             const evData = await evRes.json();
             setEvents(evData);
-            if (evData.length > lastEventCountRef.current) {
-              const newEvts = evData.slice(lastEventCountRef.current);
-              newEvts.forEach((e) => {
-                addLog(
-                  e.status === 'failed' ? 'error' : e.status === 'success' ? 'success' : 'agent',
-                  `[${e.agent?.toUpperCase() || 'ORCHESTRATOR'}] ${e.message}`
-                );
-              });
-              lastEventCountRef.current = evData.length;
-            }
+          }
+
+          const artRes = await fetch(`${API_BASE}/workflows/${activeWorkflow.workflow_id}/artifacts`);
+          if (artRes.ok) {
+            const artData = await artRes.json();
+            setArtifacts(artData);
           }
         } catch (e) {
           console.warn('Polling error:', e);
@@ -240,37 +218,57 @@ export default function Workspace({ onBackToLanding }) {
     };
   }, [activeWorkflow?.workflow_id, activeWorkflow?.status]);
 
-  // Scroll to bottom on message updates
+  // 5. Real Elapsed Timer Calculation (Fixes 00:00 bug)
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, tasks, activeWorkflow?.status]);
+    if (!activeWorkflow?.created_at) {
+      setElapsedSeconds(0);
+      return;
+    }
 
-  // 5. Start New Workflow
-  const handleStartWorkflow = async (goalText) => {
-    if (!goalText || !goalText.trim()) return;
+    const startTime = new Date(activeWorkflow.created_at).getTime();
+    const isRunning = activeWorkflow.status === 'running' || activeWorkflow.status === 'planned';
+
+    if (isRunning) {
+      // Live counting timer
+      const tick = () => {
+        const now = Date.now();
+        setElapsedSeconds(Math.max(0, Math.floor((now - startTime) / 1000)));
+      };
+      tick();
+      const interval = setInterval(tick, 1000);
+      return () => clearInterval(interval);
+    } else {
+      // Completed or Failed: Freeze at real elapsed time
+      let endTime = Date.now();
+      if (activeWorkflow.updated_at) {
+        endTime = new Date(activeWorkflow.updated_at).getTime();
+      } else if (events.length > 0) {
+        const lastEv = events[events.length - 1];
+        if (lastEv.timestamp) endTime = new Date(lastEv.timestamp).getTime();
+      }
+      setElapsedSeconds(Math.max(1, Math.floor((endTime - startTime) / 1000)));
+    }
+  }, [activeWorkflow?.workflow_id, activeWorkflow?.status, activeWorkflow?.created_at, activeWorkflow?.updated_at, events.length]);
+
+  const formatElapsed = (sec) => {
+    const mins = Math.floor(sec / 60).toString().padStart(2, '0');
+    const remSec = (sec % 60).toString().padStart(2, '0');
+    return `${mins}:${remSec}`;
+  };
+
+  // 6. Start Workflow Handler
+  const handleStartWorkflow = async (goalText, isDemo = false) => {
     setError(null);
     setIsSubmitting(true);
-    const cleanText = goalText.trim();
-
-    // Optimistic user message in chat
-    const userMsg = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      text: cleanText,
-      timestamp: new Date().toISOString(),
-    };
-    setMessages([userMsg]);
-    setInputValue('');
-    addLog('info', `Initiating requirement: "${cleanText}"`);
 
     try {
       const res = await fetch(`${API_BASE}/goals`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          goal: cleanText,
+          goal: goalText,
           auto_execute: true,
-          demo_mode: demoMode,
+          demo_mode: isDemo,
         }),
       });
 
@@ -280,712 +278,902 @@ export default function Workspace({ onBackToLanding }) {
       }
 
       const newWorkflow = await res.json();
-      lastEventCountRef.current = 0;
       setActiveWorkflow(newWorkflow);
       setTasks(newWorkflow.tasks || []);
       setRequirements(newWorkflow.requirements || null);
       setEvaluation(null);
       setArtifacts([]);
       setEvents([]);
-
-      // Assistant placeholder message with the 4 stage blocks
-      setMessages([
-        userMsg,
-        {
-          id: `assistant-${newWorkflow.workflow_id}`,
-          role: 'assistant',
-          workflowId: newWorkflow.workflow_id,
-          status: 'running',
-          timestamp: new Date().toISOString(),
-        },
-      ]);
-
       fetchWorkflows();
     } catch (err) {
       setError(err.message);
-      addLog('error', `Workflow error: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // 6. Handle Follow-Up Iterative Modification
-  const handleModifyWorkflow = async (instructionText) => {
-    if (!instructionText || !instructionText.trim() || !activeWorkflow?.workflow_id) return;
-    setError(null);
-    setIsSubmitting(true);
-    const cleanInst = instructionText.trim();
+  // 7. Copy Workflow ID Helper
+  const handleCopyWorkflowId = () => {
+    if (!activeWorkflow?.workflow_id) return;
+    navigator.clipboard.writeText(activeWorkflow.workflow_id);
+    setCopyToast(true);
+    setTimeout(() => setCopyToast(false), 2000);
+  };
 
-    const userModMsg = {
-      id: `user-mod-${Date.now()}`,
-      role: 'user',
-      text: cleanInst,
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, userModMsg]);
-    setInputValue('');
-    addLog('info', `Applying iteration: "${cleanInst}"`);
-
+  // 8. Open Artifact Code Viewer Modal
+  const handleOpenFileModal = async (fileName) => {
+    if (!activeWorkflow?.workflow_id) return;
+    setViewingFile(fileName);
+    setLoadingFileContent(true);
     try {
-      const res = await fetch(`${API_BASE}/workflows/${activeWorkflow.workflow_id}/modify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instruction: cleanInst,
-          demo_mode: demoMode,
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || 'Failed to modify workflow');
-      }
-
-      // Reload workflow to reflect changes
-      setTimeout(() => {
-        loadWorkflow(activeWorkflow.workflow_id);
-      }, 1200);
-    } catch (err) {
-      setError(err.message);
-      addLog('error', `Iteration error: ${err.message}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleComposerSubmit = (e) => {
-    e.preventDefault();
-    if (!inputValue.trim() || isSubmitting) return;
-
-    if (!activeWorkflow || activeWorkflow.status === 'completed' || activeWorkflow.status === 'failed') {
-      if (activeWorkflow && activeWorkflow.status === 'completed') {
-        // Apply iterative modification
-        handleModifyWorkflow(inputValue);
+      const res = await fetch(`${API_BASE}/workflows/${activeWorkflow.workflow_id}/artifact/${fileName}`);
+      if (res.ok) {
+        const text = await res.text();
+        setViewingFileContent(text);
       } else {
-        // Start brand new workflow
-        handleStartWorkflow(inputValue);
+        setViewingFileContent(`// Error loading file: HTTP ${res.status}`);
       }
-    } else {
-      // Currently executing
-      handleModifyWorkflow(inputValue);
+    } catch (err) {
+      setViewingFileContent(`// Failed to fetch file content: ${err.message}`);
+    } finally {
+      setLoadingFileContent(false);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleComposerSubmit(e);
-    }
-  };
+  // Derived Metrics & Status
+  const isExecuting = activeWorkflow?.status === 'running' || activeWorkflow?.status === 'planned' || isSubmitting;
+  const isVerified =
+    evaluation?.status === 'passed' ||
+    evaluation?.score === 100 ||
+    activeWorkflow?.status === 'completed';
 
-  // Helper to compute status for each of the 4 stages
-  const getStageStatus = (stageKey) => {
-    if (!activeWorkflow) return 'pending';
+  const totalTasks = tasks.length || 6;
+  const completedTasks = tasks.filter((t) => t.status === 'success').length;
+  const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const runningTask = tasks.find((t) => t.status === 'running');
+  const activeTask = runningTask || tasks.find((t) => t.status === 'pending') || tasks[tasks.length - 1] || null;
+
+  // Real Recovery Counts from Recorded Events
+  const recoveryCounts = useMemo(() => {
+    const defectEvents = events.filter((e) =>
+      ['EVALUATION_FAILED', 'TASK_ERROR', 'QA_FAILED'].includes(e.event_type) ||
+      (e.status === 'failed' && e.event_type !== 'WORKFLOW_FAILED')
+    );
+    const retryEvents = events.filter((e) =>
+      ['REPAIR_STARTED', 'QA_RETRY', 'TASK_REASSIGNED'].includes(e.event_type)
+    );
+    const patchEvents = events.filter((e) =>
+      ['PATCH_APPLIED', 'REPAIR_COMPLETED'].includes(e.event_type)
+    );
+    return {
+      defects: defectEvents.length,
+      retries: retryEvents.length,
+      patches: patchEvents.length,
+    };
+  }, [events]);
+
+  // Stage Status Mapping
+  const stageStatuses = useMemo(() => {
+    if (!activeWorkflow) return { create: 'pending', test: 'pending', deploy: 'pending', collaborate: 'pending' };
     const isWfDone = activeWorkflow.status === 'completed';
     const isWfFailed = activeWorkflow.status === 'failed';
     const isWfRunning = activeWorkflow.status === 'running' || activeWorkflow.status === 'planned';
 
-    if (isWfDone) return 'success';
-
-    // Map tasks to stages
-    // T1, T2, T3 -> Create
-    // T4 -> Test / Evaluator
-    // T5 -> Deploy
-    // T6 -> Collaborate / Evaluator
-    const taskT1 = tasks.find((t) => t.task_id === 'T1');
-    const taskT2 = tasks.find((t) => t.task_id === 'T2');
-    const taskT3 = tasks.find((t) => t.task_id === 'T3');
-    const taskT4 = tasks.find((t) => t.task_id === 'T4');
-    const taskT5 = tasks.find((t) => t.task_id === 'T5');
-    const taskT6 = tasks.find((t) => t.task_id === 'T6');
-
-    if (stageKey === 'create') {
-      if (taskT3?.status === 'success' || taskT4?.status === 'running' || taskT4?.status === 'success') return 'success';
-      if (taskT1?.status === 'running' || taskT2?.status === 'running' || taskT3?.status === 'running') return 'running';
-      if (isWfRunning) return 'running';
-      return 'pending';
+    if (isWfDone) {
+      return { create: 'success', test: 'success', deploy: 'success', collaborate: 'success' };
     }
 
-    if (stageKey === 'test') {
-      if (taskT4?.status === 'success' || taskT6?.status === 'success') return 'success';
-      if (taskT4?.status === 'running' || taskT6?.status === 'running') return 'running';
-      if (taskT3?.status === 'success') return 'running';
-      return 'pending';
-    }
+    const t1 = tasks.find((t) => t.task_id === 'T1');
+    const t2 = tasks.find((t) => t.task_id === 'T2');
+    const t3 = tasks.find((t) => t.task_id === 'T3');
+    const t4 = tasks.find((t) => t.task_id === 'T4');
+    const t5 = tasks.find((t) => t.task_id === 'T5');
+    const t6 = tasks.find((t) => t.task_id === 'T6');
 
-    if (stageKey === 'deploy') {
-      if (taskT5?.status === 'success' || isWfDone) return 'success';
-      if (taskT5?.status === 'running') return 'running';
-      if (taskT4?.status === 'success') return 'running';
-      return 'pending';
-    }
+    let create = 'pending';
+    let test = 'pending';
+    let deploy = 'pending';
+    let collaborate = 'pending';
 
-    if (stageKey === 'collaborate') {
-      if (isWfDone) return 'success';
-      if (taskT6?.status === 'running' || taskT5?.status === 'success') return 'running';
-      return 'pending';
-    }
+    // CREATE (T1, T2, T3)
+    if (t3?.status === 'success' || t4?.status === 'running' || t4?.status === 'success') create = 'success';
+    else if (t1?.status === 'running' || t2?.status === 'running' || t3?.status === 'running' || isWfRunning) create = 'running';
 
-    return 'pending';
-  };
+    // TEST (T4 / T6 Evaluation)
+    if (t6?.status === 'success' || evaluation?.passed) test = 'success';
+    else if (t6?.status === 'running' || t4?.status === 'running') test = 'running';
+    else if (t3?.status === 'success') test = 'running';
 
-  const isExecuting = activeWorkflow?.status === 'running' || activeWorkflow?.status === 'planned' || isSubmitting;
+    // DEPLOY (T5)
+    if (t5?.status === 'success' || isWfDone) deploy = 'success';
+    else if (t5?.status === 'running') deploy = 'running';
+    else if (test === 'success') deploy = 'running';
+
+    // COLLABORATE
+    if (isWfDone) collaborate = 'success';
+    else if (deploy === 'success') collaborate = 'running';
+
+    return { create, test, deploy, collaborate };
+  }, [activeWorkflow?.status, tasks, evaluation]);
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
-      {/* 1. Header Bar */}
-      <header
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
+      {/* 1. Header with System Chips, Real Latency, Model, API host, and Theme Toggle */}
+      <Header
+        isOnline={isOnline}
+        connectionStatus={connectionStatus}
+        modelName={modelName}
+        providerMode={providerMode}
+        latency={latency}
+        apiUrl={API_BASE}
+        isExecuting={isExecuting}
+        isVerified={isVerified}
+        connectionMessage={connectionMessage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onBackToLanding={onBackToLanding}
+      />
+
+      {/* 2. Navigation Tab Bar with Animated Sliding Underline + Workflow ID Badge */}
+      <nav
         style={{
-          height: '52px',
-          borderBottom: '1px solid var(--border-subtle)',
           background: 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border-subtle)',
+          padding: '0 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 20px',
-          zIndex: 30,
+          flexWrap: 'wrap',
+          gap: '12px',
+          position: 'sticky',
+          top: '52px',
+          zIndex: 45,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button
-            onClick={onBackToLanding}
-            className="btn-secondary"
-            style={{ padding: '5px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-            title="Return to Landing Page"
-          >
-            <ArrowLeft size={13} /> Back
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 800, fontSize: '0.95rem', letterSpacing: '-0.02em' }}>NEXUS</span>
-            <span
-              style={{
-                fontSize: '0.7rem',
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--text-muted)',
-                background: 'var(--bg-surface-secondary)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              WORKSPACE
-            </span>
-          </div>
-        </div>
-
-        {/* Server status & Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {/* Health Status Indicator */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.75rem',
-              fontFamily: 'var(--font-mono)',
-              color: isOnline ? 'var(--state-success-text)' : 'var(--text-muted)',
-              padding: '3px 8px',
-              borderRadius: 'var(--radius-xs)',
-              background: isOnline ? 'var(--state-success-bg)' : 'var(--bg-surface-secondary)',
-              border: `1px solid ${isOnline ? 'var(--state-success-border)' : 'var(--border-subtle)'}`,
-            }}
-          >
-            <span className={`status-dot ${isOnline ? 'status-dot-success' : 'status-dot-pending'}`} />
-            <span>{isWakingUp ? 'Waking up server...' : connectionMessage}</span>
-          </div>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="btn-secondary"
-            style={{ padding: '6px 10px', fontSize: '0.75rem' }}
-            title="Toggle theme"
-          >
-            {theme === 'light' ? <Moon size={13} /> : <Sun size={13} />}
-          </button>
-
-          {/* Right Panel Toggle */}
-          <button
-            onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
-            className="btn-secondary"
-            style={{ padding: '6px 10px', fontSize: '0.75rem' }}
-            title={isRightPanelOpen ? 'Collapse artifacts panel' : 'Expand artifacts panel'}
-          >
-            {isRightPanelOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
-          </button>
-        </div>
-      </header>
-
-      {/* 1b. System Status Strip */}
-      {activeWorkflow && (
-        <div
-          style={{
-            height: '36px',
-            borderBottom: '1px solid var(--border-subtle)',
-            background: '#0f172a',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 20px',
-            gap: '16px',
-            overflowX: 'auto',
-            flexShrink: 0,
-          }}
-        >
+        <div className="nav-tabs" role="tablist">
           {[
-            { label: 'SYSTEM', value: isOnline ? 'ONLINE' : 'OFFLINE', ok: isOnline },
-            { label: 'MODEL', value: connectionMessage.split('•')[1]?.trim() || 'AI', ok: true },
-            { label: 'API', value: isOnline ? 'VERIFIED' : 'CHECKING', ok: isOnline },
-            { label: 'WORKFLOW', value: activeWorkflow?.workflow_id ? `WF-${activeWorkflow.workflow_id.slice(0, 8).toUpperCase()}` : 'N/A', ok: !!activeWorkflow },
-            { label: 'AGENTS', value: '4 SPECIALISTS', ok: true },
-            {
-              label: 'STATUS',
-              value: activeWorkflow?.status === 'completed'
-                ? 'PROJECT READY'
-                : activeWorkflow?.status === 'failed'
-                ? 'FAILED'
-                : activeWorkflow?.status === 'running'
-                ? 'EXECUTING'
-                : 'INITIALIZING',
-              ok: activeWorkflow?.status === 'completed',
-            },
-          ].map((item) => (
-            <div
-              key={item.label}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                flexShrink: 0,
-              }}
+            { id: 'overview', label: 'Overview' },
+            { id: 'workflows', label: `Workflows (${workflowsList.length})` },
+            { id: 'agents', label: 'Agents (4)' },
+            { id: 'execution', label: 'Execution' },
+            { id: 'recovery', label: `Recovery (${recoveryCounts.defects})` },
+            { id: 'projects', label: `Projects (${artifacts.length})` },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
             >
-              <span
-                style={{
-                  fontSize: '0.6rem',
-                  fontFamily: 'var(--font-mono)',
-                  color: '#475569',
-                  letterSpacing: '0.07em',
-                }}
-              >
-                {item.label}
-              </span>
-              <span
-                style={{
-                  fontSize: '0.68rem',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 700,
-                  color: item.ok ? '#34d399' : '#f87171',
-                  background: item.ok ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
-                  border: `1px solid ${item.ok ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`,
-                  padding: '1px 7px',
-                  borderRadius: '3px',
-                }}
-              >
-                {item.value}
-              </span>
-            </div>
+              {tab.label}
+            </button>
           ))}
         </div>
-      )}
 
-      {/* 2. Main Workspace Layout: Left Sidebar + Center Chat Thread + Right Panel */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left Sidebar: Run History */}
-        <aside
-          style={{
-            width: isSidebarOpen ? '260px' : '0px',
-            borderRight: '1px solid var(--border-subtle)',
-            background: 'var(--bg-surface)',
-            display: 'flex',
-            flexDirection: 'column',
-            transition: 'width 180ms ease',
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ padding: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
+        {/* Right side: Workflow ID (copyable) + status badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {activeWorkflow?.workflow_id && (
             <button
-              onClick={() => {
-                setActiveWorkflow(null);
-                setMessages([]);
-                setTasks([]);
-                setRequirements(null);
-                setEvaluation(null);
-                setArtifacts([]);
-              }}
-              className="btn-primary"
-              style={{ width: '100%', padding: '8px', fontSize: '0.8rem', justifyContent: 'center' }}
-            >
-              <Plus size={14} /> New Project
-            </button>
-          </div>
-
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px' }}>
-            <div
+              onClick={handleCopyWorkflowId}
+              className="btn-secondary"
+              title="Click to copy Workflow ID"
               style={{
-                fontSize: '0.7rem',
+                padding: '4px 10px',
+                fontSize: '0.72rem',
                 fontFamily: 'var(--font-mono)',
-                color: 'var(--text-muted)',
-                padding: '6px 8px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'var(--bg-surface-secondary)',
               }}
             >
-              Project Runs ({workflowsList.length})
-            </div>
+              {copyToast ? (
+                <>
+                  <Check size={11} style={{ color: 'var(--state-success)' }} />
+                  <span style={{ color: 'var(--state-success-text)' }}>Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={11} />
+                  <span>WF-{activeWorkflow.workflow_id.slice(0, 8).toUpperCase()}</span>
+                </>
+              )}
+            </button>
+          )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {workflowsList.map((wf) => {
-                const isSelected = activeWorkflow?.workflow_id === wf.workflow_id;
-                const title = wf.requirements?.project_name || wf.original_goal || 'Untitled Project';
-                const timeStr = wf.created_at ? new Date(wf.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                return (
-                  <button
-                    key={wf.workflow_id}
-                    onClick={() => loadWorkflow(wf.workflow_id)}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 'var(--radius-xs)',
-                      border: isSelected ? '1px solid var(--border-strong)' : '1px solid transparent',
-                      background: isSelected ? 'var(--bg-surface-secondary)' : 'transparent',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '2px',
-                    }}
-                  >
-                    <div style={{ fontSize: '0.78rem', fontWeight: isSelected ? '700' : '500', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {title}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                      <span>{timeStr}</span>
-                      <span className={`status-dot ${wf.status === 'completed' ? 'status-dot-success' : wf.status === 'running' ? 'status-dot-running' : 'status-dot-pending'}`} />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
+          <span
+            className={`badge ${
+              activeWorkflow?.status === 'completed'
+                ? 'badge-success'
+                : activeWorkflow?.status === 'running' || activeWorkflow?.status === 'planned'
+                ? 'badge-running'
+                : activeWorkflow?.status === 'failed'
+                ? 'badge-failed'
+                : 'badge-pending'
+            }`}
+            style={{ fontSize: '0.68rem', padding: '4px 9px' }}
+          >
+            {activeWorkflow?.status ? activeWorkflow.status.toUpperCase() : 'STANDBY'}
+          </span>
+        </div>
+      </nav>
 
-        {/* Center: Conversation Thread */}
-        <main
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            background: 'var(--bg-canvas)',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Chat Messages Scroll Container */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Empty State with Prompt Chips */}
-            {messages.length === 0 && (
-              <div style={{ maxWidth: '680px', margin: '40px auto 0', textAlign: 'center' }}>
-                <div
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    background: '#0f172a',
-                    color: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 800,
-                  }}
-                >
-                  N
-                </div>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: '8px' }}>
-                  What would you like to build?
-                </h2>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>
-                  Describe your engineering requirements. NEXUS will analyze, plan, generate full-stack code, run tests, formulate deploy configs, and prepare pull request docs.
-                </p>
-
-                {/* Suggested prompt chips */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left' }}>
-                  {[
-                    'Create a student expense tracker where users can add expenses, categorize them, view total spending, and see recent transactions.',
-                    'Build a developer task kanban board with backlog, in-progress, and done columns with REST API persistence.',
-                    'Create a RESTful API with SQLite models, automated tests, and React dashboard analytics.',
-                  ].map((chip, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleStartWorkflow(chip)}
-                      className="panel"
-                      style={{
-                        padding: '12px 16px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        background: 'var(--bg-surface)',
-                        border: '1px solid var(--border-subtle)',
-                        fontSize: '0.82rem',
-                        lineHeight: 1.4,
-                        transition: 'all 150ms ease',
-                      }}
-                    >
-                      <span style={{ color: 'var(--text-primary)' }}>"{chip}"</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Rendered Messages */}
-            {messages.map((msg) => {
-              if (msg.role === 'user') {
-                return (
-                  <div key={msg.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <div
-                      style={{
-                        maxWidth: '75%',
-                        background: '#0f172a',
-                        color: '#ffffff',
-                        padding: '12px 18px',
-                        borderRadius: '12px',
-                        fontSize: '0.88rem',
-                        lineHeight: 1.5,
-                        boxShadow: 'var(--shadow-xs)',
-                      }}
-                    >
-                      {msg.text}
-                    </div>
-                  </div>
-                );
-              }
-
-              if (msg.role === 'assistant') {
-                return (
-                  <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '820px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      <Sparkles size={14} style={{ color: 'var(--state-running)' }} />
-                      <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>CREATE → TEST → DEPLOY → COLLABORATE</span>
-                    </div>
-
-                    {/* Stage 1: CREATE */}
-                    <StageBlock
-                      stageKey="create"
-                      stageNumber={1}
-                      title="CREATE"
-                      description="Requirements analysis, architecture planning, technology selection, and full-stack source code generation."
-                      status={getStageStatus('create')}
-                      tasks={tasks}
-                      requirements={requirements}
-                      artifacts={artifacts}
-                      workflowId={activeWorkflow?.workflow_id}
-                    />
-
-                    {/* Stage 2: TEST */}
-                    <StageBlock
-                      stageKey="test"
-                      stageNumber={2}
-                      title="TEST"
-                      description="Syntax validation, API contract verification, dependency checks, and automated project integrity testing."
-                      status={getStageStatus('test')}
-                      tasks={tasks}
-                      requirements={requirements}
-                      evaluation={evaluation}
-                      artifacts={artifacts}
-                      workflowId={activeWorkflow?.workflow_id}
-                    />
-
-                    {/* Stage 3: DEPLOY */}
-                    <StageBlock
-                      stageKey="deploy"
-                      stageNumber={3}
-                      title="DEPLOY"
-                      description="Production configuration, Dockerfile, cloud deployment blueprints (Render, Vercel), and CI/CD workflow generation."
-                      status={getStageStatus('deploy')}
-                      tasks={tasks}
-                      requirements={requirements}
-                      artifacts={artifacts}
-                      workflowId={activeWorkflow?.workflow_id}
-                    />
-
-                    {/* Stage 4: COLLABORATE */}
-                    <StageBlock
-                      stageKey="collaborate"
-                      stageNumber={4}
-                      title="COLLABORATE"
-                      description="README generation, pull request description, change summary, code review, and developer handoff documentation."
-                      status={getStageStatus('collaborate')}
-                      tasks={tasks}
-                      requirements={requirements}
-                      artifacts={artifacts}
-                      workflowId={activeWorkflow?.workflow_id}
-                    />
-                  </div>
-                );
-              }
-
-              if (msg.role === 'assistant-mod') {
-                return (
-                  <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '750px' }}>
-                    <div
-                      style={{
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--bg-surface)',
-                        border: '1px solid var(--state-success-border)',
-                        fontSize: '0.85rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--state-success-text)', fontWeight: 600, marginBottom: '4px' }}>
-                        <CheckCircle2 size={14} /> Iteration Applied Successfully
-                      </div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{msg.text}</p>
-                    </div>
-                  </div>
-                );
-              }
-
-              return null;
-            })}
-
-            {/* Error Banner */}
-            {error && (
-              <div
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--state-failure-bg)',
-                  border: '1px solid var(--state-failure-border)',
-                  color: 'var(--state-failure-text)',
-                  fontSize: '0.82rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertCircle size={15} />
-                  <span>{error}</span>
-                </div>
-                <button
-                  onClick={() => handleStartWorkflow(inputValue || 'Create student expense tracker')}
-                  className="btn-secondary"
-                  style={{ padding: '3px 8px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <RotateCcw size={12} /> Retry
-                </button>
-              </div>
-            )}
-
-            <div ref={chatBottomRef} />
+      {/* 3. Real Progress Strip (Task Counter, Active Agent, Real Elapsed Timer, Shimmer Progress Bar) */}
+      <div
+        style={{
+          background: isExecuting ? 'linear-gradient(90deg, #0f172a 0%, #1e3a8a 100%)' : 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border-subtle)',
+          padding: '8px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          color: isExecuting ? '#ffffff' : 'var(--text-primary)',
+          fontSize: '0.76rem',
+          fontFamily: 'var(--font-mono)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Current Task Counter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+            <span style={{ color: isExecuting ? '#38bdf8' : 'var(--state-running)' }}>
+              {activeTask?.task_id || 'T1'}
+            </span>
+            <span style={{ color: isExecuting ? 'rgba(255,255,255,0.4)' : 'var(--text-muted)' }}>/</span>
+            <span style={{ color: isExecuting ? '#e2e8f0' : 'var(--text-secondary)' }}>
+              {totalTasks}
+            </span>
           </div>
 
-          {/* 3. Bottom Composer */}
+          {/* Active Agent Name */}
           <div
             style={{
-              padding: '16px 28px',
-              borderTop: '1px solid var(--border-subtle)',
-              background: 'var(--bg-surface)',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              background: isExecuting ? 'rgba(255, 255, 255, 0.12)' : 'var(--bg-surface-secondary)',
+              border: `1px solid ${isExecuting ? 'rgba(255, 255, 255, 0.2)' : 'var(--border-subtle)'}`,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
             }}
           >
-            <form onSubmit={handleComposerSubmit} style={{ maxWidth: '820px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Users size={12} />
+            <span>{(activeTask?.assigned_agent || 'orchestrator').toUpperCase()} AGENT</span>
+          </div>
+
+          {/* Task Title */}
+          <span style={{ color: isExecuting ? '#cbd5e1' : 'var(--text-secondary)', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {activeTask?.title || 'System initialized'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Real Elapsed Timer */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Clock size={13} style={{ color: isExecuting ? '#94a3b8' : 'var(--text-muted)' }} />
+            <span style={{ color: isExecuting ? '#94a3b8' : 'var(--text-muted)' }}>Elapsed:</span>
+            <strong style={{ color: isExecuting ? '#ffffff' : 'var(--text-primary)' }}>
+              {formatElapsed(elapsedSeconds)}
+            </strong>
+          </div>
+
+          {/* Progress Bar with Subtle Moving Shimmer */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                width: '100px',
+                height: '6px',
+                background: isExecuting ? 'rgba(255,255,255,0.2)' : 'var(--bg-surface-tertiary)',
+                borderRadius: 'var(--radius-full)',
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
               <div
+                className={isExecuting ? 'progress-bar-fill' : ''}
                 style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  background: 'var(--bg-canvas)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '10px',
-                  padding: '10px 14px',
+                  width: `${progressPercent}%`,
+                  height: '100%',
+                  background: isVerified ? 'var(--state-success)' : 'var(--state-running)',
+                  borderRadius: 'var(--radius-full)',
+                  transition: 'width 400ms cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
-              >
-                <textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={
-                    activeWorkflow?.status === 'completed'
-                      ? 'Ask a follow-up modification (e.g. "add dark mode", "add a login page")...'
-                      : 'Describe what you want to build (e.g. "Student expense tracker with categories and budget totals")...'
-                  }
-                  rows={2}
-                  style={{
-                    flex: 1,
-                    border: 'none',
-                    background: 'transparent',
-                    outline: 'none',
-                    resize: 'none',
-                    fontSize: '0.88rem',
-                    fontFamily: 'var(--font-sans)',
-                    color: 'var(--text-primary)',
-                    lineHeight: 1.45,
-                  }}
-                  disabled={isSubmitting}
+              />
+            </div>
+            <strong style={{ color: isExecuting ? '#38bdf8' : 'var(--text-primary)' }}>
+              {progressPercent}%
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Main Body Content Based on Active Tab */}
+      <main style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
+        {/* ========================================================
+            TAB 1: OVERVIEW (Prototype Main Layout)
+           ======================================================== */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1440px', margin: '0 auto' }}>
+            {/* Top Two-Column Grid: Left Card + Right Dark Panel */}
+            <div
+              className="command-center-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.35fr) minmax(360px, 1fr)',
+                gap: '22px',
+                alignItems: 'start',
+              }}
+            >
+              {/* Left Column: Developer Requirement Input + Result Banner + Analyzer + Planner */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {/* Developer Requirement Input Card */}
+                <GoalInput
+                  onStartWorkflow={handleStartWorkflow}
+                  isSubmitting={isSubmitting || isExecuting}
+                  error={error}
+                  activeGoal={activeWorkflow?.original_goal}
+                  isOnline={isOnline}
+                  connectionStatus={connectionStatus}
+                  workflowStatus={activeWorkflow?.status}
                 />
 
-                <button
-                  type="submit"
-                  disabled={!inputValue.trim() || isSubmitting}
-                  className="btn-primary"
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '8px',
-                    fontSize: '0.82rem',
-                    flexShrink: 0,
-                  }}
-                >
-                  {isSubmitting ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                <span>Press <strong>Enter</strong> to send • <strong>Shift+Enter</strong> for newline</span>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={demoMode}
-                    onChange={(e) => setDemoMode(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
+                {/* Result Banner (Project Ready) */}
+                {activeWorkflow?.status === 'completed' && (
+                  <ProjectReadyBanner
+                    workflowId={activeWorkflow?.workflow_id}
+                    evaluation={evaluation}
+                    artifacts={artifacts}
+                    requirements={requirements}
                   />
-                  <span>Fast offline demo mode</span>
-                </label>
-              </div>
-            </form>
-          </div>
-        </main>
+                )}
 
-        {/* Right Panel: Collapsible Tabs (Files, Plan, Validation, Logs) */}
-        {isRightPanelOpen && (
-          <aside
+                {/* Analyzer Output Card */}
+                {requirements && (
+                  <div className="panel" style={{ background: 'var(--bg-surface)' }}>
+                    <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div className="panel-title">
+                        <Search size={15} style={{ color: '#2563eb' }} />
+                        <span>Analyzer Agent Output — Requirement Specification</span>
+                      </div>
+                      <span className="badge badge-success">ANALYSIS VERIFIED</span>
+                    </div>
+
+                    <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                          Objective & Mission
+                        </div>
+                        <div style={{ fontSize: '0.86rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                          {requirements.objective || activeWorkflow?.original_goal}
+                        </div>
+                      </div>
+
+                      {requirements.requested_features?.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                            Features Identified ({requirements.requested_features.length})
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {requirements.requested_features.map((feat, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  fontSize: '0.74rem',
+                                  padding: '3px 8px',
+                                  borderRadius: 'var(--radius-xs)',
+                                  background: 'var(--bg-surface-secondary)',
+                                  border: '1px solid var(--border-subtle)',
+                                  color: 'var(--text-primary)',
+                                }}
+                              >
+                                ✓ {feat}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {requirements.expected_deliverables && (
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                            Expected Deliverable Output
+                          </div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                            {requirements.expected_deliverables}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Planner Output Card */}
+                {requirements?.execution_plan && (
+                  <ExecutionPlanCard requirements={requirements} />
+                )}
+              </div>
+
+              {/* Right Column: Dark Panel "NEXUS Agent Pipeline" */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                <AgentGraph
+                  stageStatuses={stageStatuses}
+                  activeWorkflow={activeWorkflow}
+                  evaluation={evaluation}
+                  artifacts={artifacts}
+                  requirements={requirements}
+                  tasks={tasks}
+                  onSelectFile={handleOpenFileModal}
+                />
+
+                {/* Evaluation 9-Check Panel if present */}
+                {evaluation && (
+                  <EvaluationPanel evaluation={evaluation} />
+                )}
+              </div>
+            </div>
+
+            {/* Overview Sections Below: Task DAG, Stage Summaries, Recovery, Event Feed, Artifacts */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+              {/* Task DAG */}
+              {tasks.length > 0 && (
+                <div className="panel" style={{ background: 'var(--bg-surface)' }}>
+                  <div className="panel-header">
+                    <div className="panel-title">
+                      <Layers size={15} style={{ color: 'var(--text-muted)' }} />
+                      <span>Task Execution DAG (T1 – T{tasks.length})</span>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                      DEPENDENCY-RESOLVED ORDER
+                    </span>
+                  </div>
+
+                  <div className="panel-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                    {tasks.map((task) => {
+                      const isTaskDone = task.status === 'success';
+                      const isTaskRunning = task.status === 'running';
+                      const isTaskFailed = task.status === 'failed';
+                      return (
+                        <div
+                          key={task.task_id}
+                          className="interactive-card"
+                          style={{
+                            padding: '14px',
+                            borderRadius: 'var(--radius-sm)',
+                            border: `1px solid ${
+                              isTaskDone
+                                ? 'var(--state-success-border)'
+                                : isTaskRunning
+                                ? 'var(--state-running-border)'
+                                : isTaskFailed
+                                ? 'var(--state-failure-border)'
+                                : 'var(--border-subtle)'
+                            }`,
+                            background: isTaskDone
+                              ? 'var(--state-success-bg)'
+                              : isTaskRunning
+                              ? 'var(--state-running-bg)'
+                              : 'var(--bg-surface)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                                {task.task_id}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '0.64rem',
+                                  fontFamily: 'var(--font-mono)',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px',
+                                  background: 'var(--bg-surface-secondary)',
+                                  color: 'var(--text-secondary)',
+                                  border: '1px solid var(--border-subtle)',
+                                }}
+                              >
+                                {task.assigned_agent.toUpperCase()}
+                              </span>
+                            </div>
+
+                            <span
+                              className={`badge ${
+                                isTaskDone
+                                  ? 'badge-success'
+                                  : isTaskRunning
+                                  ? 'badge-running'
+                                  : isTaskFailed
+                                  ? 'badge-failed'
+                                  : 'badge-pending'
+                              }`}
+                            >
+                              {task.status.toUpperCase()}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {task.title}
+                          </div>
+
+                          {task.output && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', background: 'var(--bg-surface)', padding: '6px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                              {task.output}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Stage Summary Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                {[
+                  {
+                    stage: 'CREATE',
+                    icon: FileCode,
+                    color: '#2563eb',
+                    status: stageStatuses.create,
+                    desc: 'Requirements scoping, decoupled architecture formulation, React client & FastAPI backend code synthesis.',
+                  },
+                  {
+                    stage: 'TEST',
+                    icon: ShieldCheck,
+                    color: '#059669',
+                    status: stageStatuses.test,
+                    desc: 'Syntax validation, API contract verification, zero-missing-dependency audit, and sandbox safety checks.',
+                  },
+                  {
+                    stage: 'DEPLOY',
+                    icon: Rocket,
+                    color: '#d97706',
+                    status: stageStatuses.deploy,
+                    desc: 'Production configurations, Uvicorn service startup, Render and Vercel cloud deployment blueprints.',
+                  },
+                  {
+                    stage: 'COLLABORATE',
+                    icon: GitPullRequest,
+                    color: '#7c3aed',
+                    status: stageStatuses.collaborate,
+                    desc: 'README documentation, pull request description, change log summary, and developer handoff archive.',
+                  },
+                ].map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <div
+                      key={s.stage}
+                      className="panel interactive-card"
+                      style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icon size={14} style={{ color: s.color }} />
+                          </div>
+                          <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
+                            {s.stage}
+                          </span>
+                        </div>
+                        <span className={`badge badge-${s.status}`}>{s.status.toUpperCase()}</span>
+                      </div>
+                      <p style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+                        {s.desc}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Adaptive Orchestration & Self-Healing Panel */}
+              <CompactRecoveryCard
+                events={events}
+                onViewRecoveryDetails={() => setActiveTab('recovery')}
+              />
+
+              {/* Real Execution Timeline & Event Feed */}
+              <ExecutionLog
+                events={events}
+                isRunning={isExecuting}
+              />
+
+              {/* Project Workspace & Generated Artifacts */}
+              <div className="panel" style={{ background: 'var(--bg-surface)' }}>
+                <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div className="panel-title">
+                    <FileCode size={15} style={{ color: 'var(--text-muted)' }} />
+                    <span>Project Workspace & Generated Artifacts ({artifacts.length})</span>
+                  </div>
+
+                  {activeWorkflow?.workflow_id && (
+                    <a
+                      href={`${API_BASE}/workflows/${activeWorkflow.workflow_id}/zip`}
+                      className="btn-primary"
+                      style={{ padding: '6px 14px', fontSize: '0.74rem', textDecoration: 'none' }}
+                      title="Download full project repository as ZIP"
+                    >
+                      <Download size={13} />
+                      <span>Download ZIP</span>
+                    </a>
+                  )}
+                </div>
+
+                <div className="panel-body">
+                  {artifacts.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                      {isExecuting
+                        ? 'Synthesizing project files across frontend/, backend/, and configs...'
+                        : 'No project files generated yet. Enter a requirement and click START NEXUS.'}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px' }}>
+                      {artifacts.map((art) => {
+                        const fileName = typeof art === 'string' ? art : art.name || art.path;
+                        const fileSize = art.size ? `${(art.size / 1024).toFixed(1)} KB` : 'Ready';
+                        return (
+                          <div
+                            key={fileName}
+                            style={{
+                              padding: '10px 14px',
+                              borderRadius: 'var(--radius-xs)',
+                              background: 'var(--bg-surface-secondary)',
+                              border: '1px solid var(--border-subtle)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '10px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                              <FileCode size={14} style={{ color: '#2563eb', flexShrink: 0 }} />
+                              <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {fileName}
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                              <span className="badge badge-success" style={{ fontSize: '0.62rem' }}>
+                                READY
+                              </span>
+                              <button
+                                onClick={() => handleOpenFileModal(fileName)}
+                                className="btn-secondary"
+                                style={{ padding: '3px 8px', fontSize: '0.7rem' }}
+                                title="View source code"
+                              >
+                                <Eye size={11} /> View
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 2: WORKFLOWS (Persisted Workflows History)
+           ======================================================== */}
+        {activeTab === 'workflows' && (
+          <div className="panel" style={{ maxWidth: '1200px', margin: '0 auto', background: 'var(--bg-surface)' }}>
+            <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="panel-title">
+                <Compass size={15} style={{ color: 'var(--text-muted)' }} />
+                <span>Persisted Workflow Runs ({workflowsList.length})</span>
+              </div>
+              <button onClick={fetchWorkflows} className="btn-secondary" style={{ padding: '4px 10px', fontSize: '0.74rem' }}>
+                <RefreshCw size={12} /> Refresh
+              </button>
+            </div>
+
+            <div className="panel-body">
+              {workflowsList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  No workflows found in database.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {workflowsList.map((wf) => {
+                    const isSelected = activeWorkflow?.workflow_id === wf.workflow_id;
+                    const isDone = wf.status === 'completed';
+                    return (
+                      <div
+                        key={wf.workflow_id}
+                        onClick={() => {
+                          loadWorkflow(wf.workflow_id);
+                          setActiveTab('overview');
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 18px',
+                          background: isSelected ? 'var(--bg-surface-secondary)' : 'var(--bg-surface)',
+                          border: `1px solid ${isSelected ? 'var(--state-running)' : 'var(--border-subtle)'}`,
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          gap: '14px',
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
+                              WF-{wf.workflow_id.slice(0, 8).toUpperCase()}
+                            </strong>
+                            <span className={`badge ${isDone ? 'badge-success' : wf.status === 'running' ? 'badge-running' : 'badge-pending'}`}>
+                              {wf.status.toUpperCase()}
+                            </span>
+                            {wf.evaluation && (
+                              <span className="badge badge-success">
+                                SCORE: {wf.evaluation.score}%
+                              </span>
+                            )}
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                              • {new Date(wf.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                            {wf.original_goal}
+                          </div>
+                        </div>
+
+                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.76rem' }}>
+                          {isSelected ? 'Active Run' : 'Load Run'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 3: AGENTS (Specialist Multi-Agent Swarm)
+           ======================================================== */}
+        {activeTab === 'agents' && (
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <AgentPanel
+              tasks={tasks}
+              requirements={requirements}
+              artifacts={artifacts}
+              evaluation={evaluation}
+              events={events}
+            />
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 4: EXECUTION (Operational DAG & Log Feed)
+           ======================================================== */}
+        {activeTab === 'execution' && (
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <ExecutionView
+              workflow={activeWorkflow}
+              tasks={tasks}
+              events={events}
+              logs={[]}
+            />
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 5: RECOVERY (Autonomous Incident Response Center)
+           ======================================================== */}
+        {activeTab === 'recovery' && (
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <RecoveryCenterView
+              workflow={activeWorkflow}
+              events={events}
+              tasks={tasks}
+            />
+          </div>
+        )}
+
+        {/* ========================================================
+            TAB 6: PROJECTS (Artifacts & Deliverable)
+           ======================================================== */}
+        {activeTab === 'projects' && (
+          <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <ProjectFilesView
+              artifacts={artifacts}
+              workflowId={activeWorkflow?.workflow_id}
+            />
+          </div>
+        )}
+      </main>
+
+      {/* 5. Interactive Code Viewer Modal */}
+      {viewingFile && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            background: 'rgba(15, 23, 42, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setViewingFile(null)}
+        >
+          <div
             style={{
-              width: '380px',
-              borderLeft: '1px solid var(--border-subtle)',
+              width: '100%',
+              maxWidth: '860px',
+              height: '80vh',
               background: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-default)',
+              boxShadow: 'var(--shadow-xl)',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-          <RightPanelTabs
-            workflowId={activeWorkflow?.workflow_id}
-            artifacts={artifacts}
-            evaluation={evaluation}
-            requirements={requirements}
-            tasks={tasks}
-            logs={logs}
-            stageStatuses={{
-              create: getStageStatus('create'),
-              test: getStageStatus('test'),
-              deploy: getStageStatus('deploy'),
-              collaborate: getStageStatus('collaborate'),
-            }}
-            activeWorkflow={activeWorkflow}
-          />
-          </aside>
-        )}
-      </div>
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '12px 18px',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: 'var(--bg-surface-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileCode size={15} style={{ color: 'var(--state-running)' }} />
+                <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.84rem' }}>
+                  {viewingFile}
+                </span>
+              </div>
+
+              <button
+                onClick={() => setViewingFile(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Code Body */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '16px', background: '#0b0f19', color: '#e2e8f0', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: '1.6' }}>
+              {loadingFileContent ? (
+                <div style={{ color: '#94a3b8', textAlign: 'center', paddingTop: '40px' }}>
+                  Loading file content...
+                </div>
+              ) : (
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {viewingFileContent}
+                </pre>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

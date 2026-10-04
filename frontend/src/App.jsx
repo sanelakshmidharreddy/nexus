@@ -55,9 +55,11 @@ export default function App() {
     setHealthCheckRetries(0);
     setHealthCheckError(null);
 
+    let retries = 0;
     let success = await checkHealth();
-    while (!success && healthCheckRetries < 10) {
-      setHealthCheckRetries(r => r + 1);
+    while (!success && retries < 10) {
+      retries += 1;
+      setHealthCheckRetries(retries);
       await new Promise(r => setTimeout(r, 1500));
       success = await checkHealth();
     }
@@ -66,7 +68,7 @@ export default function App() {
       setHealthCheckStatus('failed');
       setHealthCheckError('Unable to connect to orchestrator. The server may be waking up from cold start.');
     }
-  }, [checkHealth, healthCheckRetries]);
+  }, [checkHealth]);
 
   const navigateTo = (route) => {
     if (route === currentRoute) return;
@@ -217,16 +219,6 @@ export default function App() {
             </div>
           </div>
         )}
-
-        <style jsx>{`
-          @keyframes nexus-pulse {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); transform: scale(1); }
-            50% { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); transform: scale(1.02); }
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .nexus-pulse { animation: none !important; }
-          }
-        `}</style>
       </div>
     );
   };

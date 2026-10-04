@@ -1,54 +1,60 @@
 import React from 'react';
-import { ExternalLink, Terminal, Cpu, Server, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { ExternalLink, Terminal, Cpu, Server, Wifi, WifiOff, AlertCircle, ArrowLeft, Sun, Moon } from 'lucide-react';
 
-export function NexusLogoMark({ size = 26, isExecuting = false, isVerified = false }) {
+export function NexusLogoMark({ size = 28, isExecuting = false, isVerified = false }) {
   const strokeColor = isVerified ? '#059669' : isExecuting ? '#2563eb' : '#0f172a';
   const centerFill = isVerified ? '#059669' : isExecuting ? '#2563eb' : '#0f172a';
   const nodeFill = isVerified ? '#10b981' : isExecuting ? '#3b82f6' : '#64748b';
 
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{
-        flexShrink: 0,
-        filter: isVerified ? 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.4))' : isExecuting ? 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.4))' : 'none',
-        transition: 'all 0.3s ease'
-      }}
-      aria-hidden="true"
-    >
-      {/* Dynamic connection lines */}
-      <line x1="16" y1="16" x2="16" y2="4" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
-      <line x1="16" y1="16" x2="26.4" y2="10" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
-      <line x1="16" y1="16" x2="26.4" y2="22" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
-      <line x1="16" y1="16" x2="16" y2="28" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
-      <line x1="16" y1="16" x2="5.6" y2="22" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
-      <line x1="16" y1="16" x2="5.6" y2="10" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
-
-      {/* Hexagonal Outer Perimeter */}
-      <polygon
-        points="16,4 26.4,10 26.4,22 16,28 5.6,22 5.6,10"
-        stroke={strokeColor}
-        strokeWidth="1"
-        strokeOpacity="0.3"
+    <div className="animate-float" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 32 32"
         fill="none"
-      />
+        xmlns="http://www.w3.org/2000/svg"
+        style={{
+          flexShrink: 0,
+          filter: isVerified
+            ? 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.4))'
+            : isExecuting
+            ? 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.4))'
+            : 'none',
+          transition: 'all 0.3s ease',
+        }}
+        aria-hidden="true"
+      >
+        {/* Dynamic connection lines */}
+        <line x1="16" y1="16" x2="16" y2="4" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
+        <line x1="16" y1="16" x2="26.4" y2="10" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
+        <line x1="16" y1="16" x2="26.4" y2="22" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
+        <line x1="16" y1="16" x2="16" y2="28" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
+        <line x1="16" y1="16" x2="5.6" y2="22" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
+        <line x1="16" y1="16" x2="5.6" y2="10" stroke={strokeColor} strokeWidth="1.5" strokeOpacity="0.7" strokeDasharray={isExecuting ? "3 3" : "none"} style={isExecuting ? { animation: 'dash-pulse 1s linear infinite' } : {}} />
 
-      {/* 6 Satellite Specialist Nodes */}
-      <circle cx="16" cy="4" r="2.2" fill={nodeFill} />
-      <circle cx="26.4" cy="10" r="2.2" fill={nodeFill} />
-      <circle cx="26.4" cy="22" r="2.2" fill={nodeFill} />
-      <circle cx="16" cy="28" r="2.2" fill={nodeFill} />
-      <circle cx="5.6" cy="22" r="2.2" fill={nodeFill} />
-      <circle cx="5.6" cy="10" r="2.2" fill={nodeFill} />
+        {/* Hexagonal Outer Perimeter */}
+        <polygon
+          points="16,4 26.4,10 26.4,22 16,28 5.6,22 5.6,10"
+          stroke={strokeColor}
+          strokeWidth="1"
+          strokeOpacity="0.3"
+          fill="none"
+        />
 
-      {/* Central NEXUS Orchestrator Node */}
-      <circle cx="16" cy="16" r="4.2" fill={centerFill} />
-      <circle cx="16" cy="16" r="6.2" stroke={strokeColor} strokeWidth="1.2" strokeOpacity="0.8" />
-    </svg>
+        {/* 6 Satellite Specialist Nodes */}
+        <circle cx="16" cy="4" r="2.2" fill={nodeFill} />
+        <circle cx="26.4" cy="10" r="2.2" fill={nodeFill} />
+        <circle cx="26.4" cy="22" r="2.2" fill={nodeFill} />
+        <circle cx="16" cy="28" r="2.2" fill={nodeFill} />
+        <circle cx="5.6" cy="22" r="2.2" fill={nodeFill} />
+        <circle cx="5.6" cy="10" r="2.2" fill={nodeFill} />
+
+        {/* Central NEXUS Orchestrator Node */}
+        <circle cx="16" cy="16" r="4.2" fill={centerFill} />
+        <circle cx="16" cy="16" r="6.2" stroke={strokeColor} strokeWidth="1.2" strokeOpacity="0.8" />
+      </svg>
+    </div>
   );
 }
 
@@ -56,11 +62,15 @@ export default function Header({
   isOnline,
   connectionStatus = 'CONNECTING',
   modelName,
+  providerMode,
   latency,
   apiUrl,
   isExecuting = false,
   isVerified = false,
   connectionMessage = '',
+  theme = 'light',
+  onToggleTheme,
+  onBackToLanding,
 }) {
   const getStatusDisplay = () => {
     if (connectionStatus === 'CONNECTING') {
@@ -95,22 +105,12 @@ export default function Header({
     }
     if (!isOnline || connectionStatus === 'OFFLINE' || connectionStatus === 'UNREACHABLE') {
       return {
-        label: 'BACKEND UNREACHABLE',
+        label: 'BACKEND OFFLINE',
         dotClass: 'status-dot-failure',
         bg: 'var(--state-failure-bg)',
         border: 'var(--state-failure-border)',
         text: 'var(--state-failure-text)',
         icon: WifiOff
-      };
-    }
-    if (connectionStatus === 'DEGRADED') {
-      return {
-        label: 'DEMO MODE (FALLBACK)',
-        dotClass: 'status-dot-running',
-        bg: 'var(--state-warning-bg)',
-        border: 'var(--state-warning-border)',
-        text: 'var(--state-warning-text)',
-        icon: AlertCircle
       };
     }
     return {
@@ -125,13 +125,17 @@ export default function Header({
 
   const status = getStatusDisplay();
 
+  const cleanHost = apiUrl
+    ? apiUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '')
+    : 'Local (Offline)';
+
   return (
     <header style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '12px 28px',
-      background: '#ffffff',
+      padding: '10px 24px',
+      background: 'var(--bg-surface)',
       borderBottom: '1px solid var(--border-subtle)',
       position: 'sticky',
       top: 0,
@@ -140,16 +144,28 @@ export default function Header({
       flexWrap: 'wrap',
       gap: '12px',
     }}>
-      {/* Brand Identity & Core Value Statement */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <NexusLogoMark size={34} isExecuting={isExecuting} isVerified={isVerified} />
+      {/* Brand Identity & Back CTA */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {onBackToLanding && (
+          <button
+            onClick={onBackToLanding}
+            className="btn-secondary"
+            style={{ padding: '6px 10px', fontSize: '0.74rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+            title="Return to Landing Page"
+          >
+            <ArrowLeft size={13} />
+            <span>Landing</span>
+          </button>
+        )}
+
+        <NexusLogoMark size={30} isExecuting={isExecuting} isVerified={isVerified} />
 
         <div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
             <span style={{
-              fontSize: '1.75rem', /* 28px */
+              fontSize: '1.4rem',
               fontWeight: '900',
-              letterSpacing: '0.04em',
+              letterSpacing: '-0.02em',
               color: 'var(--text-primary)',
               fontFamily: 'var(--font-sans)',
               lineHeight: 1.1,
@@ -157,9 +173,9 @@ export default function Header({
               NEXUS
             </span>
             <span style={{
-              fontSize: '0.74rem',
+              fontSize: '0.68rem',
               fontWeight: '800',
-              letterSpacing: '0.1em',
+              letterSpacing: '0.08em',
               color: 'var(--text-muted)',
               fontFamily: 'var(--font-mono)',
               textTransform: 'uppercase',
@@ -167,25 +183,16 @@ export default function Header({
               AI DEVELOPER ORCHESTRATOR
             </span>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
-              From one goal to a verified outcome.
-            </span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              • Plan. Delegate. Execute. Recover. Verify.
-            </span>
-          </div>
         </div>
       </div>
 
       {/* Telemetry & System Status Indicators */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
         {/* Backend Online Status Indicator */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '7px',
+          gap: '6px',
           padding: '4px 10px',
           borderRadius: 'var(--radius-xs)',
           background: status.bg,
@@ -193,7 +200,7 @@ export default function Header({
         }}>
           <span className={`status-dot ${status.dotClass}`} />
           <span style={{
-            fontSize: '0.72rem',
+            fontSize: '0.7rem',
             fontWeight: '700',
             fontFamily: 'var(--font-mono)',
             color: status.text,
@@ -202,7 +209,7 @@ export default function Header({
             {status.label}
           </span>
           {latency !== null && isOnline && (
-            <span style={{ fontSize: '0.7rem', color: status.text, fontFamily: 'var(--font-mono)', opacity: 0.8 }}>
+            <span style={{ fontSize: '0.68rem', color: status.text, fontFamily: 'var(--font-mono)', opacity: 0.85 }}>
               • {latency}ms
             </span>
           )}
@@ -212,48 +219,53 @@ export default function Header({
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
+          gap: '5px',
+          padding: '4px 9px',
           borderRadius: 'var(--radius-xs)',
           background: 'var(--bg-surface-secondary)',
           border: '1px solid var(--border-subtle)',
-          fontSize: '0.72rem',
+          fontSize: '0.7rem',
           fontFamily: 'var(--font-mono)',
           color: 'var(--text-secondary)',
         }}>
-          <Cpu size={13} style={{ color: 'var(--text-muted)' }} />
+          <Cpu size={12} style={{ color: 'var(--text-muted)' }} />
           <span style={{ color: 'var(--text-muted)' }}>MODEL:</span>
           <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>
-            {modelName || 'qwen2.5:7b-instruct'}
+            {modelName || 'gemini-3.8-flash'}
           </span>
+          {providerMode && (
+            <span style={{ color: 'var(--text-faint)', fontSize: '0.65rem' }}>
+              ({providerMode})
+            </span>
+          )}
         </div>
 
         {/* API Host Badge */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
+          gap: '5px',
+          padding: '4px 9px',
           borderRadius: 'var(--radius-xs)',
           background: 'var(--bg-surface-secondary)',
           border: '1px solid var(--border-subtle)',
-          fontSize: '0.72rem',
+          fontSize: '0.7rem',
           fontFamily: 'var(--font-mono)',
           color: 'var(--text-secondary)',
         }}>
-          <Server size={13} style={{ color: 'var(--text-muted)' }} />
-          <span style={{ color: 'var(--text-muted)' }}>API:</span>
-          <span style={{ color: 'var(--text-primary)', fontWeight: '600', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {apiUrl ? apiUrl.replace(/^https?:\/\//, '') : 'Unconfigured'}
+          <Server size={12} style={{ color: 'var(--text-muted)' }} />
+          <span style={{ color: 'var(--text-muted)' }}>HOST:</span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: '600', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {cleanHost}
           </span>
         </div>
 
-        {/* Workflow Lifecycle Status Chip (Section 34) */}
+        {/* Verified Status Chip */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          padding: '4px 10px',
+          gap: '5px',
+          padding: '4px 9px',
           borderRadius: 'var(--radius-xs)',
           background: isVerified
             ? 'var(--state-success-bg)'
@@ -267,7 +279,7 @@ export default function Header({
               ? 'var(--state-running-border)'
               : 'var(--border-subtle)'
           }`,
-          fontSize: '0.72rem',
+          fontSize: '0.7rem',
           fontFamily: 'var(--font-mono)',
           fontWeight: '700',
           color: isVerified
@@ -278,7 +290,7 @@ export default function Header({
         }}>
           <span className={`status-dot ${isVerified ? 'status-dot-success' : isExecuting ? 'status-dot-running' : 'status-dot-pending'}`} />
           <span>
-            {isVerified ? '✓ VERIFIED' : isExecuting ? '● ORCHESTRATING' : 'STANDBY'}
+            {isVerified ? 'VERIFIED' : isExecuting ? 'ORCHESTRATING' : 'STANDBY'}
           </span>
         </div>
 
@@ -289,13 +301,25 @@ export default function Header({
             target="_blank"
             rel="noreferrer"
             className="btn-secondary"
-            style={{ textDecoration: 'none', padding: '4px 10px', fontSize: '0.72rem' }}
+            style={{ textDecoration: 'none', padding: '4px 9px', fontSize: '0.7rem' }}
             title="Open FastAPI Swagger Interactive Documentation"
           >
             <Terminal size={12} style={{ color: 'var(--text-muted)' }} />
             <span>API Docs</span>
-            <ExternalLink size={11} style={{ color: 'var(--text-faint)' }} />
+            <ExternalLink size={10} style={{ color: 'var(--text-faint)' }} />
           </a>
+        )}
+
+        {/* Theme Toggle Button */}
+        {onToggleTheme && (
+          <button
+            onClick={onToggleTheme}
+            className="btn-secondary"
+            style={{ padding: '6px 9px', fontSize: '0.75rem' }}
+            title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+          >
+            {theme === 'light' ? <Moon size={13} /> : <Sun size={13} />}
+          </button>
         )}
       </div>
     </header>
