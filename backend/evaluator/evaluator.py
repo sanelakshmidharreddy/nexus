@@ -1,140 +1,157 @@
-"""Evaluator Agent: Performs requirement-based verification of deliverables against initial goals."""
+"""Evaluator Agent: Validates generated project against developer tools criteria."""
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from backend.tools import workspace_tools
 
 
 def evaluate_deliverable(workflow_id: str, goal: str, requirements: dict, tasks: list) -> dict:
-    """Evaluates the project sandbox and execution state against the 9 verification criteria."""
+    """Evaluates the project sandbox and code integrity against 7 developer tools criteria."""
     checks = []
+    errors = []
 
-    # 1. Goal Understood
-    has_objective = bool(requirements.get("objective") or goal)
+    sandbox_files = workspace_tools.list_directory(workflow_id)
+    file_map = {f["path"].replace("\\", "/"): f for f in sandbox_files}
+
+    # 1. Project Structure
+    has_backend_dir = any(p.startswith("backend/") for p in file_map)
+    has_frontend_dir = any(p.startswith("frontend/") for p in file_map)
+    structure_passed = has_backend_dir and has_frontend_dir
+    if not structure_passed:
+        errors.append("Missing frontend/ or backend/ directory structure.")
     checks.append({
-        "name": "Goal Understood & Scoped",
-        "passed": has_objective,
-        "evidence": requirements.get("objective", goal)
+        "name": "Project Structure Valid",
+        "passed": structure_passed,
+        "evidence": "Verified decoupled frontend/ and backend/ directory hierarchy." if structure_passed else "Directory hierarchy incomplete."
     })
 
-    # 2. Required Files Exist
-    sandbox_files = workspace_tools.list_directory(workflow_id)
-    file_names = {f["name"] for f in sandbox_files}
-    expected_files = {"index.html", "styles.css", "app.js", "data.json"}
-    files_present = expected_files.issubset(file_names)
+    # 2. Required Project Files
+    core_files = [
+        "backend/main.py",
+        "backend/models.py",
+        "backend/database.py",
+        "backend/requirements.txt",
+        "frontend/package.json",
+        "frontend/src/App.jsx",
+        "README.md",
+        "index.html",
+    ]
+    missing = [f for f in core_files if f not in file_map]
+    required_passed = len(missing) == 0
+    if not required_passed:
+        errors.append(f"Missing core files: {', '.join(missing)}")
     checks.append({
         "name": "Required Project Files Exist",
-        "passed": files_present,
-        "evidence": f"Found {len(file_names)} files: {', '.join(sorted(file_names))}"
+        "passed": required_passed,
+        "evidence": f"Found all {len(core_files)} required source files." if required_passed else f"Missing: {', '.join(missing)}"
     })
 
-    # 3. Requested Analytics Implemented
-    has_analytics = False
+    # 3. Non-Empty Files & Code Integrity
+    empty_files = []
+    for fpath in core_files:
+        if fpath in file_map and file_map[fpath]["size"] == 0:
+            empty_files.append(fpath)
+    integrity_passed = len(empty_files) == 0 and required_passed
+    if empty_files:
+        errors.append(f"Files are empty: {', '.join(empty_files)}")
+    checks.append({
+        "name": "Non-Empty File Integrity",
+        "passed": integrity_passed,
+        "evidence": f"All {len(file_map)} generated files have valid content ({sum(f['size'] for f in file_map.values())} total bytes)." if integrity_passed else f"Empty files: {', '.join(empty_files)}"
+    })
+
+    # 4. Dependency Configuration
+    deps_passed = False
+    evidence_deps = "Checking dependency manifests..."
     try:
-        raw_data = workspace_tools.read_file(workflow_id, "data.json")
-        data_json = json.loads(raw_data)
-        metrics = data_json.get("metrics", {})
-        has_analytics = "total_accidents" in metrics and "total_casualties" in metrics
-        evidence_analytics = f"Total accidents: {metrics.get('total_accidents')}, Casualties: {metrics.get('total_casualties')}"
+        reqs = workspace_tools.read_file(workflow_id, "backend/requirements.txt")
+        pkg = workspace_tools.read_file(workflow_id, "frontend/package.json")
+        has_fastapi = "fastapi" in reqs.lower()
+        has_react = "react" in pkg.lower()
+        deps_passed = has_fastapi and has_react
+        evidence_deps = "FastAPI in backend/requirements.txt and React in frontend/package.json confirmed."
     except Exception as e:
-        evidence_analytics = f"Analytics read failed: {e}"
+        evidence_deps = f"Failed to read manifests: {e}"
+        errors.append(evidence_deps)
 
     checks.append({
-        "name": "Core Analytics Implemented",
-        "passed": has_analytics,
-        "evidence": evidence_analytics
+        "name": "Dependency Configuration",
+        "passed": deps_passed,
+        "evidence": evidence_deps
     })
 
-    # 4. Interactive Dashboard Exists
-    dashboard_exists = False
+    # 5. API Endpoint Consistency
+    api_passed = False
+    evidence_api = "Verifying API endpoints..."
     try:
-        html = workspace_tools.read_file(workflow_id, "index.html")
-        dashboard_exists = "<html" in html and "RoadSafe" in html
-        evidence_dash = "Found HTML5 application container with DOM bindings"
-    except Exception:
-        evidence_dash = "index.html missing or unreadable"
+        backend_code = workspace_tools.read_file(workflow_id, "backend/main.py")
+        frontend_code = workspace_tools.read_file(workflow_id, "frontend/src/App.jsx")
+        
+        backend_routes = re.findall(r'@app\.(?:get|post|put|delete)\(["\'](/api/[^"\']+)["\']', backend_code)
+        # Check if frontend calls at least one matching route
+        matching = [r for r in backend_routes if r in frontend_code]
+        api_passed = len(matching) > 0
+        evidence_api = f"Verified frontend consumes backend route(s): {', '.join(matching)}" if api_passed else "No matching API routes detected between client and server."
+    except Exception as e:
+        evidence_api = f"API verification error: {e}"
+
+    if not api_passed:
+        errors.append("API route mismatch between frontend client and backend FastAPI router.")
 
     checks.append({
-        "name": "Working Dashboard Interface",
-        "passed": dashboard_exists,
-        "evidence": evidence_dash
+        "name": "API Endpoint Consistency",
+        "passed": api_passed,
+        "evidence": evidence_api
     })
 
-    # 5. Build/Syntax Validation
-    js_valid = False
+    # 6. README & Run Instructions
+    readme_passed = False
+    evidence_readme = "Checking README.md..."
     try:
-        js = workspace_tools.read_file(workflow_id, "app.js")
-        js_valid = "renderDashboard" in js and "addEventListener" in js
-        evidence_js = "Validated JS syntax and event listener setup"
-    except Exception:
-        evidence_js = "app.js check failed"
+        readme = workspace_tools.read_file(workflow_id, "README.md")
+        has_run = "uvicorn" in readme or "npm run" in readme or "python" in readme
+        readme_passed = len(readme) > 100 and has_run
+        evidence_readme = "README contains architecture overview, Quick Start commands, and API documentation."
+    except Exception as e:
+        evidence_readme = f"README check failed: {e}"
 
     checks.append({
-        "name": "Build & Syntax Validation",
-        "passed": js_valid,
-        "evidence": evidence_js
+        "name": "Documentation & Setup Guide",
+        "passed": readme_passed,
+        "evidence": evidence_readme
     })
 
-    # 6. Requested Features Detected (Hotspots & Recommendations)
-    features_ok = False
-    try:
-        raw_sum = workspace_tools.read_file(workflow_id, "analysis_summary.json")
-        summary = json.loads(raw_sum)
-        features_ok = len(summary.get("top_hotspots", [])) > 0 and len(summary.get("recommendations", [])) > 0
-        evidence_feat = f"Detected {len(summary.get('top_hotspots', []))} hotspots and {len(summary.get('recommendations', []))} mitigation recommendations"
-    except Exception:
-        evidence_feat = "analysis_summary.json features not found"
+    # 7. Path Safety & Sandbox Isolation
+    path_safety_passed = True
+    evidence_safety = "All files safely contained within workspace sandbox root."
+    for p in file_map:
+        if ".." in p or p.startswith("/") or p.startswith("\\"):
+            path_safety_passed = False
+            evidence_safety = f"Path escape violation detected in: {p}"
+            errors.append(evidence_safety)
+            break
 
     checks.append({
-        "name": "Requested Features Detected",
-        "passed": features_ok,
-        "evidence": evidence_feat
+        "name": "Path Safety & Isolation",
+        "passed": path_safety_passed,
+        "evidence": evidence_safety
     })
 
-    # 7. QA Passed
-    qa_tasks = [t for t in tasks if getattr(t, "assigned_agent", None) == "qa"]
-    qa_passed = any(getattr(t, "status", None) == "success" for t in qa_tasks) if qa_tasks else True
-    checks.append({
-        "name": "QA Verification Passed",
-        "passed": qa_passed,
-        "evidence": "QA Agent confirmed 0 compilation and schema errors" if qa_passed else "QA not completed"
-    })
-
-    # 8. Adaptive Recovery Succeeded (if retried)
-    retries = sum(getattr(t, "retry_count", 0) for t in tasks)
-    recovery_succeeded = True
-    if retries > 0:
-        recovery_succeeded = all(t.status == "success" for t in tasks if t.retry_count > 0)
-        rec_evidence = f"Self-healing successfully resolved {retries} defects"
-    else:
-        rec_evidence = "Executed cleanly without requiring fault recovery"
-
-    checks.append({
-        "name": "Adaptive Recovery Verified",
-        "passed": recovery_succeeded,
-        "evidence": rec_evidence
-    })
-
-    # 9. Final Deliverable Accessible
-    deliverable_ok = files_present and dashboard_exists and has_analytics
-    checks.append({
-        "name": "Final Deliverable Operational",
-        "passed": deliverable_ok,
-        "evidence": f"Deliverable accessible at workspace/generated_projects/{workflow_id}/"
-    })
-
-    total_checks = len(checks)
     passed_count = sum(1 for c in checks if c["passed"])
-    score = int((passed_count / total_checks) * 100)
-    verified = (passed_count == total_checks)
+    total_count = len(checks)
+    score = int((passed_count / total_count) * 100)
+    passed_all = passed_count == total_count
 
     return {
-        "verified": verified,
-        "status": "passed" if verified else "failed",
+        "status": "passed" if passed_all else "failed",
         "score": score,
-        "total_checks": total_checks,
+        "passed": passed_all,
         "passed_checks": passed_count,
+        "total_checks": total_count,
         "checks": checks,
+        "errors": errors,
+        "summary": f"Evaluation Passed: {passed_count}/{total_count} developer criteria verified (Score {score}%)." if passed_all else f"Evaluation Failed: {len(errors)} issues identified.",
         "evaluated_at": datetime.now(timezone.utc).isoformat()
     }

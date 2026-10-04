@@ -1,469 +1,183 @@
 import React, { useState } from 'react';
-import { ArrowRight, Check, AlertCircle, Sparkles, ListChecks, Play, Zap } from 'lucide-react';
+import { Play, Sparkles, AlertCircle, Terminal, CheckCircle2, RefreshCw } from 'lucide-react';
 
 export default function GoalInput({
   onStartWorkflow,
   isSubmitting,
   error,
   activeGoal,
-  requirements,
   isOnline,
   connectionStatus,
-  connectionMessage,
   workflowStatus,
 }) {
-  const defaultGoalText = "Build a RoadSafe-style accident analytics dashboard from this dataset.";
-  const [goal, setGoal] = useState(activeGoal || defaultGoalText);
-  const [submissionStage, setSubmissionStage] = useState('IDLE'); // 'IDLE' | 'INITIALIZING' | 'UNDERSTANDING' | 'PLANNING' | 'EXECUTING'
+  const defaultPlaceholder =
+    "Create a student expense tracker with a React frontend, FastAPI backend and SQLite database.";
+  const [goal, setGoal] = useState(activeGoal || defaultPlaceholder);
 
   const presets = [
     {
-      title: "RoadSafe Analytics",
-      text: "Build a RoadSafe-style accident analytics dashboard from this dataset.",
-      badge: "Benchmark"
+      title: "Student Expense Tracker",
+      prompt: "Create a student expense tracker with a React frontend, FastAPI backend and SQLite database where users can add expenses, categorize them, view total spending, and see recent transactions.",
+      badge: "Full Stack"
     },
     {
-      title: "Vision Zero Hotspots",
-      text: "Create a Vision Zero accident hotspot analyzer with collision severity clustering and mitigation recommendations.",
-      badge: "Geospatial"
+      title: "API Key Manager",
+      prompt: "Create a developer API key manager with FastAPI and React to generate, list, revoke, and track rate limits for developer API keys.",
+      badge: "Dev Tool"
     },
     {
-      title: "Traffic Risk Factors",
-      text: "Develop an accident causation risk-factor engine with temporal trends and weather correlation reports.",
-      badge: "Analytics"
-    },
-    {
-      title: "Custom Goal",
-      text: "",
-      badge: "Freeform"
+      title: "Task Kanban Board",
+      prompt: "Create a modern Kanban task board with FastAPI, React, and SQLite supporting card reordering, status stages, and deadline alerts.",
+      badge: "Productivity"
     }
   ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!goal.trim() || isSubmitting) return;
-
-    setSubmissionStage('INITIALIZING');
-    setTimeout(() => setSubmissionStage('UNDERSTANDING'), 300);
-    setTimeout(() => setSubmissionStage('PLANNING'), 700);
-    setTimeout(() => setSubmissionStage('EXECUTING'), 1200);
-
     onStartWorkflow(goal.trim(), false);
   };
 
-  const handleRunDemo = () => {
-    if (isSubmitting) return;
-
-    setSubmissionStage('INITIALIZING');
-    setTimeout(() => setSubmissionStage('UNDERSTANDING'), 250);
-    setTimeout(() => setSubmissionStage('PLANNING'), 550);
-    setTimeout(() => setSubmissionStage('EXECUTING'), 900);
-
-    onStartWorkflow(defaultGoalText, true);
-  };
-
   const handleSelectPreset = (p) => {
-    if (p.text) {
-      setGoal(p.text);
-    } else {
-      setGoal("");
-    }
-  };
-
-  const getRequirementsChecklist = () => {
-    if (!requirements) return [];
-    const items = [];
-    if (requirements.requested_features && requirements.requested_features.length > 0) {
-      items.push(...requirements.requested_features);
-    }
-    if (requirements.data_requirements && requirements.data_requirements.length > 0) {
-      requirements.data_requirements.forEach(dr => {
-        if (!items.includes(dr)) items.push(dr);
-      });
-    }
-    if (items.length === 0) {
-      return [
-        "Accident trends analysis",
-        "Accident hotspots visualization",
-        "Risk-factor correlation",
-        "Mitigation recommendations",
-        "Interactive dashboard interface"
-      ];
-    }
-    return items;
-  };
-
-  const getButtonText = () => {
-    if (!isSubmitting) return "START ORCHESTRATION";
-    switch (submissionStage) {
-      case 'INITIALIZING': return "INITIALIZING...";
-      case 'UNDERSTANDING': return "UNDERSTANDING...";
-      case 'PLANNING': return "PLANNING DAG...";
-      case 'EXECUTING': return "EXECUTING...";
-      default: return "ORCHESTRATING...";
-    }
+    setGoal(p.prompt);
   };
 
   return (
-    <div className="panel" style={{ background: '#ffffff', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="panel-header">
-        <div className="panel-title">
-          <Zap size={15} style={{ color: 'var(--text-muted)' }} />
-          <span>Autonomous Directive & Mission Scoping</span>
+    <div className="panel" style={{ background: '#ffffff', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)' }}>
+      <div className="panel-header" style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.9rem' }}>
+          <Terminal size={16} style={{ color: 'var(--state-running)' }} />
+          <span>DEVELOPER REQUIREMENT DIRECTIVE</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            INPUT & REQUIREMENTS SYNTHESIS
+          <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+            MULTI-AGENT ORCHESTRATION PIPELINE
           </span>
         </div>
       </div>
 
-      <div className="panel-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-            <label style={{
-              fontSize: '1.08rem',
-              fontWeight: '700',
-              color: 'var(--text-primary)',
-              letterSpacing: '-0.02em',
-            }}>
-              What should NEXUS build?
+      <div className="panel-body" style={{ padding: '18px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '8px' }}>
+              What do you want to build?
             </label>
-
-            {/* Benchmark Quick Run Button (Section 29) */}
-            <button
-              type="button"
-              onClick={handleRunDemo}
-              disabled={isSubmitting}
-              className="btn-primary"
-              style={{
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                borderColor: '#0f172a',
-                padding: '7px 16px',
-                fontSize: '0.8rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 8px rgba(15, 23, 42, 0.2)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(15, 23, 42, 0.28)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.2)';
-              }}
-              title="One-click complete proof of NEXUS: Autonomous RoadSafe build with defect interception & self-healing recovery"
-            >
-              <Sparkles size={14} color="#f59e0b" />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left', lineHeight: '1.2' }}>
-                <span style={{ fontWeight: '800', letterSpacing: '0.04em' }}>RUN BENCHMARK MISSION</span>
-                <span style={{ fontSize: '0.64rem', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>RoadSafe Autonomous Build</span>
-              </div>
-            </button>
-          </div>
-
-          <div style={{ position: 'relative', marginBottom: '12px' }}>
             <textarea
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
+              placeholder={defaultPlaceholder}
+              rows={4}
               disabled={isSubmitting}
-              rows={3}
-              placeholder="Build a RoadSafe-style accident analytics dashboard from this dataset."
               style={{
                 width: '100%',
-                background: '#ffffff',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-primary)',
-                fontSize: '0.94rem',
-                lineHeight: '1.5',
                 padding: '12px 14px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-default)',
                 fontFamily: 'var(--font-sans)',
+                fontSize: '0.88rem',
+                lineHeight: '1.5',
+                color: 'var(--text-primary)',
+                background: isSubmitting ? 'var(--bg-surface-secondary)' : '#ffffff',
                 resize: 'vertical',
                 outline: 'none',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = 'var(--border-focus)';
-                e.target.style.boxShadow = '0 0 0 1px var(--border-focus)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = 'var(--border-default)';
-                e.target.style.boxShadow = 'none';
+                transition: 'border-color 150ms ease, box-shadow 150ms ease',
               }}
             />
           </div>
 
-          {/* Preset Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: '600', fontFamily: 'var(--font-mono)' }}>
-              PRESETS:
+          {/* Presets */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+              SUGGESTED PROMPTS:
             </span>
-            {presets.map((p, idx) => (
+            {presets.map((preset, idx) => (
               <button
                 key={idx}
                 type="button"
-                onClick={() => handleSelectPreset(p)}
+                onClick={() => handleSelectPreset(preset)}
                 disabled={isSubmitting}
+                className="btn-secondary"
                 style={{
-                  background: 'var(--bg-surface-secondary)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-xs)',
-                  padding: '4px 10px',
                   fontSize: '0.74rem',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  display: 'inline-flex',
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-xs)',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-default)';
-                  e.currentTarget.style.color = 'var(--text-primary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                  e.currentTarget.style.color = 'var(--text-secondary)';
+                  gap: '5px',
+                  background: '#ffffff',
                 }}
               >
-                <span style={{ fontWeight: '500' }}>{p.title}</span>
+                <span>{preset.title}</span>
                 <span style={{
-                  fontSize: '0.64rem',
-                  padding: '1px 4px',
-                  borderRadius: '2px',
-                  background: '#ffffff',
+                  fontSize: '0.65rem',
+                  padding: '1px 5px',
+                  borderRadius: '3px',
+                  background: 'var(--bg-surface-secondary)',
                   color: 'var(--text-muted)',
-                  border: '1px solid var(--border-subtle)',
-                  fontFamily: 'var(--font-mono)',
+                  fontFamily: 'var(--font-mono)'
                 }}>
-                  {p.badge}
+                  {preset.badge}
                 </span>
               </button>
             ))}
           </div>
 
-          {/* Submit Row */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingTop: '12px',
-            borderTop: '1px solid var(--border-subtle)',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span className={`status-dot ${isSubmitting ? 'status-dot-running' : 'status-dot-success'}`} />
-              <span>NEXUS automatically scopes requirements, builds a topological DAG plan, and dispatches specialist agents.</span>
+          {error && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-xs)',
+              background: 'var(--state-failure-bg)',
+              border: '1px solid var(--state-failure-border)',
+              color: 'var(--state-failure-text)',
+              fontSize: '0.8rem',
+            }}>
+              <AlertCircle size={15} style={{ flexShrink: 0 }} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <Sparkles size={14} style={{ color: 'var(--state-running)' }} />
+              <span>AI Pipeline: Analyzer → Planner → Code Gen → Evaluator</span>
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting || !goal.trim()}
               className="btn-primary"
-              style={{ minWidth: '170px' }}
+              style={{
+                padding: '10px 22px',
+                fontSize: '0.84rem',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'var(--text-primary)',
+                color: '#ffffff',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                transition: 'background 150ms ease, transform 150ms ease',
+              }}
             >
               {isSubmitting ? (
                 <>
-                  <span className="status-dot status-dot-running" style={{ background: '#ffffff' }} />
-                  <span>{getButtonText()}</span>
+                  <RefreshCw size={15} className="spin" />
+                  <span>ORCHESTRATING...</span>
                 </>
               ) : (
                 <>
-                  <span>START ORCHESTRATION</span>
-                  <ArrowRight size={14} />
+                  <Play size={15} fill="currentColor" />
+                  <span>START NEXUS</span>
                 </>
               )}
             </button>
           </div>
         </form>
-
-        {/* Benchmark Completion Proof Summary (Section 29) */}
-        {workflowStatus === 'completed' && (
-          <div style={{
-            marginTop: '16px',
-            padding: '12px 16px',
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%)',
-            border: '1px solid var(--state-success-border)',
-            borderRadius: 'var(--radius-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Check size={16} color="var(--state-success)" />
-              <span style={{ fontSize: '0.82rem', fontWeight: '800', fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-                BENCHMARK MISSION PROOF:
-              </span>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                Autonomous Execution & Self-Healing Successfully Verified
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', fontWeight: '700', flexWrap: 'wrap' }}>
-              <span className="badge badge-success">8 / 8 TASKS</span>
-              <span className="badge badge-retrying">1 RECOVERY</span>
-              <span className="badge badge-success">100% VERIFIED</span>
-              <span className="badge badge-running">DELIVERABLE READY</span>
-            </div>
-          </div>
-        )}
-
-        {/* Waking Up / Cold-Start Informational Banner */}
-        {!error && connectionStatus === 'RETRYING' && (
-          <div style={{
-            marginTop: '16px',
-            padding: '12px 16px',
-            background: 'var(--state-running-bg)',
-            border: '1px solid var(--state-running-border)',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--state-running-text)',
-            fontSize: '0.8rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-            flexWrap: 'wrap',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="status-dot status-dot-running" />
-              <span style={{ fontWeight: '600' }}>
-                Backend service is waking up on Render (free tier cold-start may take ~30-50s).
-              </span>
-            </div>
-            <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', opacity: 0.85 }}>
-              Auto-reconnecting...
-            </span>
-          </div>
-        )}
-
-        {/* Error Alert / Diagnostic Connection Card */}
-        {error && (
-          <div style={{
-            marginTop: '16px',
-            padding: '16px 18px',
-            background: '#fff1f2',
-            border: '1px solid #fecdd3',
-            borderRadius: 'var(--radius-sm)',
-            color: '#9f1239',
-            fontSize: '0.84rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
-            boxShadow: '0 2px 8px rgba(225, 29, 72, 0.08)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <AlertCircle size={18} color="#e11d48" style={{ flexShrink: 0 }} />
-                <span style={{ fontWeight: '800', letterSpacing: '0.04em', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#be123c' }}>
-                  {typeof error === 'object' ? (error.title || 'CONNECTION ERROR') : 'CONNECTION ERROR'}
-                </span>
-              </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', background: '#ffffff', padding: '2px 8px', borderRadius: '4px', border: '1px solid #fecdd3', color: '#475569' }}>
-                <span>Backend:</span>
-                <strong style={{ color: '#0f172a' }}>{typeof error === 'object' ? error.apiUrl : (isOnline ? 'Online' : 'Offline')}</strong>
-              </div>
-            </div>
-
-            <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: '500', lineHeight: '1.45' }}>
-              {typeof error === 'object' ? error.subtitle : error}
-            </div>
-
-            {typeof error === 'object' && error.causes && (
-              <div style={{ marginTop: '2px', paddingTop: '8px', borderTop: '1px solid #ffe4e6' }}>
-                <div style={{ fontSize: '0.72rem', fontWeight: '700', color: '#881337', marginBottom: '6px', fontFamily: 'var(--font-mono)' }}>
-                  POSSIBLE CAUSES & CHECKS:
-                </div>
-                <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#475569', lineHeight: '1.6' }}>
-                  {error.causes.map((cause, idx) => (
-                    <li key={idx}>{cause}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Structured Requirements Panel */}
-        {requirements && (
-          <div style={{
-            marginTop: '18px',
-            background: 'var(--bg-surface-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '16px',
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '12px',
-              paddingBottom: '8px',
-              borderBottom: '1px solid var(--border-subtle)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ListChecks size={16} color="var(--state-success)" />
-                <span style={{ fontSize: '0.82rem', fontWeight: '700', letterSpacing: '0.04em', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                  SYNTHESIZED INTENT & SCOPE
-                </span>
-              </div>
-              <span className="badge badge-success">
-                REQUIREMENTS EXTRACTED
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-              <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '3px' }}>
-                  Objective
-                </div>
-                <div style={{ fontSize: '0.86rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                  {requirements.objective || "Build a RoadSafe accident analytics dashboard."}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '3px' }}>
-                  Expected Deliverable
-                </div>
-                <div style={{ fontSize: '0.86rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.4' }}>
-                  {requirements.expected_output || "Working analytics dashboard with interactive charts and hotspots"}
-                </div>
-              </div>
-            </div>
-
-            {/* Checklist */}
-            <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '6px' }}>
-                Target Feature Matrix
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px' }}>
-                {getRequirementsChecklist().slice(0, 6).map((req, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    fontSize: '0.78rem',
-                    color: 'var(--text-primary)',
-                    background: '#ffffff',
-                    padding: '5px 9px',
-                    borderRadius: 'var(--radius-xs)',
-                    border: '1px solid var(--border-subtle)',
-                  }}>
-                    <Check size={13} color="var(--state-success)" style={{ flexShrink: 0 }} />
-                    <span style={{ fontWeight: '500' }}>{req}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

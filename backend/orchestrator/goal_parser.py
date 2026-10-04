@@ -1,12 +1,12 @@
-"""Goal parser: transforms natural-language goals into structured requirements."""
+"""Analyzer Agent: transforms developer natural-language goals into structured engineering requirements."""
 
 import json
 import logging
+import os
 import re
 from backend.orchestrator import model
-from backend.orchestrator.state import REQUIRED_REQUIREMENTS_KEYS
 
-logger = logging.getLogger("orchestrator.goal_parser")
+logger = logging.getLogger("nexus.goal_parser")
 
 
 class GoalParsingError(Exception):
@@ -14,155 +14,160 @@ class GoalParsingError(Exception):
     pass
 
 
-LIST_KEYS = {
-    "requested_features",
-    "constraints",
-    "data_requirements",
-    "ui_requirements",
-    "technical_requirements",
-    "verification_requirements",
-}
-
-STRING_KEYS = {
+REQUIRED_KEYS = (
+    "project_name",
     "objective",
     "domain",
+    "requested_features",
+    "constraints",
+    "technologies_identified",
     "expected_output",
-}
-
-
-def _clean_json_text(raw: str) -> str:
-    cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
-    return cleaned.strip()
-
-
-def _extract_and_normalize(raw_text: str) -> dict:
-    cleaned = _clean_json_text(raw_text)
-    data = json.loads(cleaned)
-    if not isinstance(data, dict):
-        raise ValueError("Model output is not a JSON object")
-
-    normalized = {}
-    for key in REQUIRED_REQUIREMENTS_KEYS:
-        val = data.get(key)
-        if key in LIST_KEYS:
-            if val is None:
-                normalized[key] = []
-            elif isinstance(val, list):
-                normalized[key] = [str(x) for x in val]
-            elif isinstance(val, str):
-                normalized[key] = [val] if val.strip() else []
-            else:
-                normalized[key] = []
-        elif key in STRING_KEYS:
-            if val is None:
-                normalized[key] = ""
-            else:
-                normalized[key] = str(val)
-    return normalized
+    "ui_requirements",
+    "technical_requirements",
+)
 
 
 def _build_deterministic_requirements(goal: str) -> dict:
-    """Generate high-fidelity deterministic requirements for hackathon demo fallback."""
+    """Generate high-fidelity requirements tailored to the developer's prompt when offline."""
     clean_goal = goal.strip()
+    lower_goal = clean_goal.lower()
+
+    # Detect theme / project type
+    if any(k in lower_goal for k in ("expense", "finance", "money", "budget", "tracker", "student")):
+        project_name = "Student Expense Tracker"
+        domain = "Personal Finance & Budget Management"
+        features = [
+            "Add and track student expenses with amount, category, and date",
+            "Categorize expenses (Food, Books, Tuition, Rent, Entertainment)",
+            "View total spending and monthly budget utilization",
+            "Recent transactions feed with edit and delete capabilities",
+            "Category breakdown visualization and spending alerts"
+        ]
+        frontend_tech = "React 18 + Vite (Tailwind / Modern CSS)"
+        backend_tech = "FastAPI (Python 3.11+)"
+        database_tech = "SQLite (Local relational database)"
+        apis = [
+            "POST /api/expenses - Record new expense transaction",
+            "GET /api/expenses - List all expenses with pagination & filters",
+            "GET /api/expenses/summary - Get total spend & category breakdown",
+            "DELETE /api/expenses/{id} - Remove transaction",
+            "GET /api/categories - List available expense categories"
+        ]
+    elif any(k in lower_goal for k in ("task", "kanban", "todo", "project")):
+        project_name = "Developer Task Kanban"
+        domain = "Developer Productivity & Workflow Management"
+        features = [
+            "Create, update, and manage task cards across stages",
+            "Kanban board workflow (Backlog, In Progress, Review, Done)",
+            "Tagging by priority, deadline, and component",
+            "Task search and stage filtering",
+            "Activity timeline of recent task updates"
+        ]
+        frontend_tech = "React 18 + Vite"
+        backend_tech = "FastAPI (Python)"
+        database_tech = "SQLite"
+        apis = [
+            "POST /api/tasks - Create new task",
+            "GET /api/tasks - List all tasks by board column",
+            "PUT /api/tasks/{id} - Update task status / details",
+            "DELETE /api/tasks/{id} - Delete task"
+        ]
+    else:
+        project_name = "Developer Project Builder"
+        domain = "Custom Developer Tooling & Automation"
+        features = [
+            f"Core workflow implementation for: {clean_goal[:60]}",
+            "Interactive responsive dashboard interface",
+            "RESTful API integration with robust data persistence",
+            "Real-time state management and data filtering"
+        ]
+        frontend_tech = "React 18 + Vite"
+        backend_tech = "FastAPI (Python)"
+        database_tech = "SQLite"
+        apis = [
+            "GET /api/items - Retrieve list of records",
+            "POST /api/items - Create new record",
+            "GET /api/summary - Dashboard analytics and metrics"
+        ]
+
     return {
-        "objective": clean_goal if len(clean_goal) > 10 else "Build a RoadSafe accident analytics dashboard",
-        "domain": "Traffic Incident Intelligence & Vision Zero Analytics",
-        "requested_features": [
-            "Accident frequency trends by month and severity",
-            "High-risk intersection collision hotspots",
-            "Casualty rate and primary risk-factor analysis",
-            "Vision Zero mitigation recommendations",
-            "Interactive dashboard interface"
-        ],
-        "expected_output": "Working analytics dashboard with interactive charts, hotspots, and casualty metrics",
+        "project_name": project_name,
+        "objective": clean_goal,
+        "domain": domain,
+        "requested_features": features,
         "constraints": [
-            "Standard web browser execution (HTML5/CSS3/Vanilla JS)",
-            "Zero external API runtime dependencies",
-            "Normalized geospatial coordinate schema"
+            "FastAPI backend architecture with typed Pydantic schemas",
+            "Pure client-side React frontend with clean component architecture",
+            "Zero external proprietary runtime dependencies",
+            "SQLite relational persistence with auto-migration",
+            "Production-ready project structure with full ZIP exportability"
         ],
-        "data_requirements": [
-            "Collision date, timestamp, and location coordinates",
-            "Casualty count and severity classification",
-            "Contributing environmental and driver behavior factors"
-        ],
+        "technologies_identified": {
+            "frontend": frontend_tech,
+            "backend": backend_tech,
+            "database": database_tech,
+            "apis": apis,
+        },
+        "expected_output": f"Full runnable {project_name} codebase with frontend, backend, database models, and README.",
         "ui_requirements": [
-            "Executive KPI metrics cards (total accidents, fatal casualties, hotspots)",
-            "Temporal collision frequency bar chart",
-            "Ranked hotspot incident list with risk tags",
-            "Engineering intervention recommendation action plan"
+            "Modern developer-grade responsive interface",
+            "Interactive form for real-time input and instant updates",
+            "Summary telemetry cards for key metrics and totals",
+            "Clean tabular / card feed for transaction or item records"
         ],
         "technical_requirements": [
-            "Pure client-side rendering for deployment compatibility",
-            "Sandboxed workspace project isolation",
-            "Automated QA build and schema verification"
-        ],
-        "verification_requirements": [
-            "Goal understood and scoped",
-            "Required project files exist (index.html, styles.css, app.js, data.json)",
-            "Core analytics implemented",
-            "Working dashboard interface",
-            "Build & syntax validation",
-            "Requested features detected",
-            "QA verification passed",
-            "Adaptive recovery verified",
-            "Final deliverable operational"
+            "FastAPI async routing with CORS middleware enabled",
+            "SQLite database with initialization script and safe transactions",
+            "Clean separation between frontend components and API client service",
+            "Complete package.json, requirements.txt, and runnable README.md"
         ]
     }
 
 
+SYSTEM_PROMPT = """You are the NEXUS Analyzer Agent, a world-class AI Software Architect.
+Analyze the developer's natural-language requirement and return a structured JSON engineering specification.
+You must return a JSON object with EXACTLY these keys:
+{
+  "project_name": "Short, clear project title",
+  "objective": "Concise summary of developer goal",
+  "domain": "Application domain",
+  "requested_features": ["Feature 1", "Feature 2", ...],
+  "constraints": ["Constraint 1", ...],
+  "technologies_identified": {
+    "frontend": "e.g. React 18 + Vite",
+    "backend": "e.g. FastAPI (Python)",
+    "database": "e.g. SQLite",
+    "apis": ["POST /api/...", "GET /api/..."]
+  },
+  "expected_output": "Description of the generated project package",
+  "ui_requirements": ["UI requirement 1", ...],
+  "technical_requirements": ["Tech requirement 1", ...]
+}
+Return ONLY valid JSON. No conversational commentary."""
+
+
 def parse(goal: str, prefer_deterministic: bool = False) -> dict:
-    """Parse a natural-language goal into a structured requirements dictionary.
-    
-    Calls the local model with retry on invalid JSON.
-    Falls back to deterministic requirements if model is unreachable or returns invalid format twice.
-    """
-    import os
-    if prefer_deterministic or os.environ.get("DEMO_MODE", "").lower() in ("1", "true", "yes") or os.environ.get("NEXUS_DEMO_FAST", "").lower() in ("1", "true", "yes"):
-        logger.info("Using fast deterministic requirements for demo execution.")
+    """Analyze developer requirement into structured engineering requirements."""
+    if not goal or not goal.strip():
+        raise GoalParsingError("Goal cannot be empty")
+
+    demo_mode = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
+    if prefer_deterministic or demo_mode:
+        logger.info("Using deterministic analyzer specification (demo mode)")
         return _build_deterministic_requirements(goal)
 
-    base_prompt = f"""You are an expert requirements analyst.
-Analyze the following goal and output a JSON object containing structured requirements.
-You must return ONLY valid JSON with exactly the following 9 fields (no markdown fences, no explanatory text):
-- objective (string)
-- domain (string)
-- requested_features (array of strings)
-- expected_output (string)
-- constraints (array of strings)
-- data_requirements (array of strings)
-- ui_requirements (array of strings)
-- technical_requirements (array of strings)
-- verification_requirements (array of strings)
-
-Goal:
-{goal}
-"""
-
-    system_instruction = "You are a requirements analyst that responds exclusively with raw JSON objects."
-
-    # Attempt 1
+    user_prompt = f"Developer Requirement:\n{goal}\n\nProduce the structured engineering requirement JSON."
     try:
-        raw_response = model.generate_json(base_prompt, system=system_instruction)
-        try:
-            return _extract_and_normalize(raw_response)
-        except (json.JSONDecodeError, ValueError) as err:
-            logger.warning("Goal parsing attempt 1 failed: %s", err)
-
-        # Attempt 2 (retry with corrective instruction)
-        retry_prompt = (
-            base_prompt
-            + "\n\nCRITICAL: Your previous response was not valid JSON. Respond with raw JSON ONLY. Do not wrap in markdown fences or include explanations."
-        )
-        raw_response_2 = model.generate_json(retry_prompt, system=system_instruction)
-        try:
-            return _extract_and_normalize(raw_response_2)
-        except (json.JSONDecodeError, ValueError) as err:
-            logger.warning("Goal parsing attempt 2 failed: %s. Using deterministic requirements.", err)
-            return _build_deterministic_requirements(goal)
-
-    except model.ModelConnectionError as exc:
-        logger.warning("Ollama model unreachable (%s). Using deterministic requirements fallback for demo.", exc)
+        raw_json = model.generate_json(user_prompt, system=SYSTEM_PROMPT)
+        cleaned = model.clean_json_text(raw_json)
+        data = json.loads(cleaned)
+        
+        # Ensure all required keys exist
+        reqs = _build_deterministic_requirements(goal)
+        for key in REQUIRED_KEYS:
+            if key in data and data[key]:
+                reqs[key] = data[key]
+        return reqs
+    except Exception as exc:
+        logger.warning(f"Analyzer LLM call failed ({exc}); falling back to intelligent deterministic requirements.")
         return _build_deterministic_requirements(goal)

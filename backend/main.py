@@ -1,20 +1,34 @@
-"""FastAPI application entrypoint for NEXUS Orchestrator."""
+"""FastAPI application entrypoint for NEXUS Developer Orchestrator."""
 
+import io
 import logging
 import os
+import re
 import sys
 import uuid
+import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
-# Ensure the repository root is always on sys.path so 'backend' is importable from any directory
+# Ensure repository root is on sys.path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+
+# Load backend/.env if present
+env_path = _REPO_ROOT / "backend" / ".env"
+if env_path.exists():
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
 
 from backend.orchestrator import db, execution, goal_parser, model, planner
 from backend.orchestrator.state import Workflow
@@ -25,15 +39,14 @@ logger = logging.getLogger("nexus.backend")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize SQLite schema and ensure workspace directories at startup
+    # Initialize SQLite schema and ensure workspace directories
     db.init_db()
     workspace_tools.ensure_workspace_root()
     yield
 
 
-app = FastAPI(title="NEXUS Orchestrator", lifespan=lifespan)
+app = FastAPI(title="NEXUS AI Developer Orchestrator", lifespan=lifespan)
 
-# Configurable CORS for development and production deployments (e.g. Vercel)
 cors_env = os.environ.get("CORS_ORIGINS", "")
 default_origins = [
     "http://localhost:5173",
@@ -47,7 +60,6 @@ default_origins = [
 custom_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
 allow_origins = list(set(default_origins + custom_origins))
 
-# Allow any localhost/127.0.0.1 port and any vercel preview/production domain
 allow_origin_regex = os.environ.get(
     "CORS_ORIGIN_REGEX",
     r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.vercel\.app)$",
@@ -62,7 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DEMO_MODE_DEFAULT = os.environ.get("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+DEMO_MODE_DEFAULT = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
 
 
 class GoalRequest(BaseModel):
@@ -75,41 +87,44 @@ class ExecuteRequest(BaseModel):
     demo_mode: bool = DEMO_MODE_DEFAULT
 
 
+def _create_workflow_zip(workflow_id: str) -> bytes:
+    sandbox_dir = workspace_tools.get_sandbox_dir(workflow_id)
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(sandbox_dir):
+            for file in files:
+                abs_path = os.path.join(root, file)
+                rel_path = os.path.relpath(abs_path, sandbox_dir)
+                zf.write(abs_path, arcname=rel_path)
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
+
+
 @app.get("/")
 def root():
-    """Root status endpoint providing service metadata."""
-    reachable, model_name = model.check_connection()
+    reachable, model_name, provider = model.check_connection()
     return {
-        "service": "NEXUS Orchestrator API",
+        "service": "NEXUS AI Developer Orchestrator API",
         "status": "online",
-        "docs": "/docs",
-        "health": "/health",
-        "model_connected": reachable,
-        "mode": "ollama (local ai)" if reachable else "deterministic fallback (production/demo mode)",
-        "demo_mode": DEMO_MODE_DEFAULT,
+        "provider": provider,
+        "model": model_name,
+        "reachable": reachable,
+        "mode": f"live ({provider})" if reachable else "deterministic fallback demo mode",
     }
 
 
 @app.get("/health")
 def health():
-    """Health check endpoint.
-    
-    Always returns HTTP 200 with connection status and model telemetry so
-    the frontend can accurately display ONLINE, DEGRADED, or OFFLINE.
-    Clearly reports whether local Ollama is active or if the server
-    is operating in deterministic demo fallback mode.
-    """
-    reachable, model_name = model.check_connection()
+    reachable, model_name, provider = model.check_connection()
     is_prod = bool(os.environ.get("PORT") or os.environ.get("RENDER") or os.environ.get("RAILWAY_ENVIRONMENT"))
     return {
         "status": "ok",
         "backend": "online",
-        "model": model_name if reachable else "deterministic-fallback",
+        "provider": provider,
+        "model": model_name,
         "model_reachable": reachable,
-        "mode": "ollama" if reachable else "deterministic_fallback",
-        "demo_mode": DEMO_MODE_DEFAULT,
+        "mode": provider if reachable else "deterministic_fallback",
         "deployment": "production" if is_prod else "local",
-        "ollama_host": model.get_ollama_host() if reachable else None,
     }
 
 
@@ -151,74 +166,82 @@ def execute_workflow(workflow_id: str, payload: ExecuteRequest | None = None):
 
 @app.get("/workflows")
 def list_workflows(limit: int = 20):
-    """Retrieve list of recent workflows."""
     workflows = db.list_workflows(limit=limit)
     return [w.to_dict() for w in workflows]
 
 
 @app.get("/workflows/{workflow_id}")
 def read_workflow(workflow_id: str):
-    """Retrieve full live persisted workflow state."""
     workflow = db.get_workflow(workflow_id)
     if not workflow:
-        raise HTTPException(
-            status_code=404, detail=f"Workflow '{workflow_id}' not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
     return workflow.to_dict()
 
 
 @app.get("/workflows/{workflow_id}/tasks/{task_id}")
 def read_task(workflow_id: str, task_id: str):
-    """Retrieve a single task from a workflow."""
     task = db.get_task(workflow_id, task_id)
     if not task:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Task '{task_id}' not found in workflow '{workflow_id}'",
-        )
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found in workflow '{workflow_id}'")
     return task.to_dict()
 
 
 @app.get("/workflows/{workflow_id}/events")
 def read_events(workflow_id: str):
-    """Retrieve execution events timeline for a workflow."""
     events = db.get_events(workflow_id)
     return [e.to_dict() for e in events]
 
 
 @app.get("/workflows/{workflow_id}/artifacts")
 def read_artifacts(workflow_id: str):
-    """Retrieve list of generated artifacts for a workflow."""
     return workspace_tools.list_directory(workflow_id)
 
 
+@app.get("/workflows/{workflow_id}/zip")
+@app.get("/api/workflows/{workflow_id}/zip")
+def download_workflow_zip(workflow_id: str):
+    """Download the complete generated project files as a ZIP archive."""
+    wf = db.get_workflow(workflow_id)
+    project_name = "nexus_project"
+    if wf and wf.requirements:
+        raw_name = wf.requirements.get("project_name", "nexus_project")
+        project_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", raw_name).lower()
+
+    zip_bytes = _create_workflow_zip(workflow_id)
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{project_name}.zip"'},
+    )
+
+
+@app.get("/api/generate-zip")
+def api_generate_zip(workflow_id: str | None = None):
+    """Compatibility endpoint for ZIP download."""
+    if not workflow_id:
+        wfs = db.list_workflows(limit=1)
+        if not wfs:
+            raise HTTPException(status_code=404, detail="No workflows found")
+        workflow_id = wfs[0].workflow_id
+    return download_workflow_zip(workflow_id)
+
+
 @app.get("/workflows/{workflow_id}/dashboard", response_class=HTMLResponse)
-def view_dashboard(workflow_id: str):
-    """Serve the generated dashboard HTML directly."""
+@app.get("/workflows/{workflow_id}/preview", response_class=HTMLResponse)
+def view_preview(workflow_id: str):
+    """Serve the generated interactive preview HTML."""
     try:
         html = workspace_tools.read_file(workflow_id, "index.html")
-        base_tag = f'<base href="/workflows/{workflow_id}/artifact/" />'
-        if "<base" not in html and "<head>" in html:
-            html = html.replace("<head>", f"<head>\n  {base_tag}")
         return HTMLResponse(content=html, status_code=200)
     except FileNotFoundError:
         raise HTTPException(
             status_code=404,
-            detail="Dashboard not yet generated for this workflow. Execution may still be running."
+            detail="Project preview not yet generated. Execution may still be running.",
         )
-
-
-@app.get("/workflows/{workflow_id}/{file_name}")
-def serve_dashboard_file(workflow_id: str, file_name: str):
-    """Serve direct relative files requested by the dashboard."""
-    if file_name in ("styles.css", "app.js", "data.json", "index.html"):
-        return serve_artifact(workflow_id, file_name)
-    raise HTTPException(status_code=404, detail=f"File '{file_name}' not found")
 
 
 @app.get("/workflows/{workflow_id}/artifact/{file_path:path}")
 def serve_artifact(workflow_id: str, file_path: str):
-    """Serve individual files (e.g. data.json, styles.css, app.js) safely from sandbox."""
     try:
         safe_path = workspace_tools._resolve_safe_path(workflow_id, file_path)
         if not os.path.exists(safe_path):
