@@ -77,30 +77,37 @@ export default function App() {
       setTimeout(() => {
         setTransitionState('splash');
         runHealthCheckWithRetry();
-      }, 400);
+      }, 350);
     } else if (route === '/' && currentRoute === '/app') {
       setTransitionState('workspace-out');
       setTimeout(() => {
         setCurrentRoute('/');
+        if (typeof window !== 'undefined') window.history.pushState(null, '', '/');
         setTransitionState('idle');
       }, 300);
     }
   };
 
+  const forceEnterWorkspace = useCallback(() => {
+    setTransitionState('workspace-in');
+    setTimeout(() => {
+      setCurrentRoute('/app');
+      if (typeof window !== 'undefined') window.history.pushState(null, '', '/app');
+      setTransitionState('idle');
+      setTargetRoute(null);
+    }, 400);
+  }, []);
+
   useEffect(() => {
     if (transitionState === 'splash' && healthCheckStatus === 'success') {
-      setTransitionState('workspace-in');
-      setTimeout(() => {
-        setCurrentRoute('/app');
-        setTransitionState('idle');
-        setTargetRoute(null);
-      }, 400);
+      forceEnterWorkspace();
     }
-  }, [healthCheckStatus, transitionState]);
+  }, [healthCheckStatus, transitionState, forceEnterWorkspace]);
 
   const handleRetry = () => {
     runHealthCheckWithRetry();
   };
+
 
   const renderTransitionOverlay = () => {
     if (transitionState === 'idle') return null;
@@ -179,11 +186,30 @@ export default function App() {
               </div>
 
               {healthCheckStatus === 'checking' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Loader2 size={18} className="spin" style={{ color: 'var(--state-running)' }} />
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {healthCheckRetries > 0 ? `Retry ${healthCheckRetries}/10` : 'Establishing connection...'}
-                  </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Loader2 size={18} className="spin" style={{ color: 'var(--state-running)' }} />
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      {healthCheckRetries > 0 ? `Retry ${healthCheckRetries}/10` : 'Establishing connection...'}
+                    </span>
+                  </div>
+                  {healthCheckRetries >= 2 && (
+                    <button
+                      onClick={forceEnterWorkspace}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: 'var(--text-secondary)',
+                        borderRadius: '6px',
+                        padding: '6px 14px',
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        marginTop: '4px',
+                      }}
+                    >
+                      Continue to Workspace →
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -193,19 +219,35 @@ export default function App() {
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: '320px' }}>
                     {healthCheckError}
                   </span>
-                  <button
-                    onClick={handleRetry}
-                    className="btn-primary"
-                    style={{
-                      padding: '10px 20px',
-                      fontSize: '0.85rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <RotateCcw size={14} /> Retry Connection
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={handleRetry}
+                      className="btn-primary"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <RotateCcw size={14} /> Retry
+                    </button>
+                    <button
+                      onClick={forceEnterWorkspace}
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--border-default)',
+                        color: 'var(--text-primary)',
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Enter Offline
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -218,13 +260,41 @@ export default function App() {
           </div>
         )}
 
+        {/* Blue and purple light sweep beam during transition */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            zIndex: 1,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: '-50%',
+              left: '-50%',
+              width: '200%',
+              height: '200%',
+              background: 'linear-gradient(115deg, transparent 35%, rgba(59, 130, 246, 0.12) 48%, rgba(139, 92, 246, 0.14) 52%, transparent 65%)',
+              animation: 'nexus-light-sweep 1.2s cubic-bezier(0.22, 1, 0.36, 1) infinite',
+            }}
+          />
+        </div>
+
         <style jsx>{`
           @keyframes nexus-pulse {
             0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); transform: scale(1); }
             50% { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); transform: scale(1.02); }
           }
+          @keyframes nexus-light-sweep {
+            0% { transform: translateY(-30%) rotate(0deg); opacity: 0; }
+            40% { opacity: 0.8; }
+            100% { transform: translateY(30%) rotate(0deg); opacity: 0; }
+          }
           @media (prefers-reduced-motion: reduce) {
-            .nexus-pulse { animation: none !important; }
+            .nexus-pulse, .nexus-light-sweep { animation: none !important; }
           }
         `}</style>
       </div>

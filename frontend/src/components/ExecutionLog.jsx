@@ -1,9 +1,46 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Terminal, Check, AlertTriangle, RefreshCw, Activity, ShieldCheck, ArrowDown } from 'lucide-react';
+import { Terminal, Check, AlertTriangle, RefreshCw, Activity, ShieldCheck, ArrowDown, Radio } from 'lucide-react';
 
-export default function ExecutionLog({ logs = [] }) {
+export default function ExecutionLog({ events = [], logs = [], isRunning = false }) {
   const containerRef = useRef(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
+
+  // Normalize data: prefer real backend events over client logs
+  const displayItems = React.useMemo(() => {
+    if (events && events.length > 0) {
+      return events.map((e, idx) => {
+        let timeStr = '';
+        if (e.timestamp) {
+          try {
+            timeStr = new Date(e.timestamp).toLocaleTimeString();
+          } catch {
+            timeStr = e.timestamp;
+          }
+        }
+        return {
+          id: e.event_id || `evt-${idx}`,
+          time: timeStr || '00:00:00',
+          agent: e.agent ? e.agent.toUpperCase() : 'ORCHESTRATOR',
+          eventType: e.event_type || 'EVENT',
+          message: e.message || '',
+          status: e.status || 'info',
+        };
+      });
+    }
+
+    if (logs && logs.length > 0) {
+      return logs.map((l, idx) => ({
+        id: `log-${idx}`,
+        time: l.time || new Date().toLocaleTimeString(),
+        agent: l.agent || 'SYSTEM',
+        eventType: l.type || 'INFO',
+        message: l.message || '',
+        status: l.type || 'info',
+      }));
+    }
+
+    return [];
+  }, [events, logs]);
 
   // Check scroll position to determine if we should auto-scroll
   const handleScroll = () => {
@@ -17,7 +54,7 @@ export default function ExecutionLog({ logs = [] }) {
     if (!userScrolledUp && containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [logs, userScrolledUp]);
+  }, [displayItems, userScrolledUp]);
 
   const scrollToBottom = () => {
     if (containerRef.current) {
@@ -26,35 +63,54 @@ export default function ExecutionLog({ logs = [] }) {
     }
   };
 
-  const getLogMeta = (log) => {
-    const msg = log.message || '';
-    const type = log.type;
+  const getItemMeta = (item) => {
+    const msg = (item.message || '').toLowerCase();
+    const type = (item.eventType || '').toUpperCase();
+    const status = (item.status || '').toLowerCase();
 
-    if (msg.includes('QA') && (msg.includes('failed') || msg.includes('Defect') || msg.includes('Error'))) {
-      return { color: 'var(--state-failure)', bg: 'var(--state-failure-bg)', border: 'var(--state-failure-border)', tag: 'QA DEFECT', icon: AlertTriangle };
+    if (status === 'failed' || type.includes('FAIL') || type.includes('ERROR') || msg.includes('defect')) {
+      return { color: 'var(--state-failure)', bg: 'var(--state-failure-bg)', border: 'var(--state-failure-border)', tag: 'DEFECT', icon: AlertTriangle };
     }
-    if (msg.includes('RECOVERY') || msg.includes('re-assigned') || msg.includes('patch') || msg.includes('diagnos')) {
-      return { color: 'var(--state-warning)', bg: 'var(--state-warning-bg)', border: 'var(--state-warning-border)', tag: 'RECOVERY', icon: RefreshCw };
+    if (type.includes('REPAIR') || type.includes('RECOVERY') || type.includes('PATCH') || msg.includes('patch')) {
+      return { color: 'var(--state-warning)', bg: 'var(--state-warning-bg)', border: 'var(--state-warning-border)', tag: 'REPAIR', icon: RefreshCw };
     }
-    if (type === 'success' || msg.includes('passed') || msg.includes('verified') || msg.includes('SUCCESS') || msg.includes('completed')) {
+    if (status === 'success' || type.includes('COMPLETED') || type.includes('PASSED') || msg.includes('passed') || msg.includes('ready')) {
       return { color: 'var(--state-success)', bg: 'var(--state-success-bg)', border: 'var(--state-success-border)', tag: 'VERIFIED', icon: Check };
     }
-    if (type === 'agent' || msg.includes('assigned') || msg.includes('Agent')) {
-      return { color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', tag: 'DISPATCH', icon: Activity };
+    if (type.includes('STARTED') || type.includes('ASSIGNED') || item.agent !== 'SYSTEM') {
+      return { color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', tag: item.agent, icon: Activity };
     }
     return { color: 'var(--text-muted)', bg: 'var(--bg-surface-secondary)', border: 'var(--border-subtle)', tag: 'SYSTEM', icon: Terminal };
   };
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#ffffff', position: 'relative' }}>
-      <div className="panel-header">
-        <div className="panel-title">
+    <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg-surface)', position: 'relative' }}>
+      <div className="panel-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Terminal size={15} style={{ color: 'var(--text-muted)' }} />
-          <span>Infrastructure Execution Timeline & Event Feed</span>
+          <span>Execution Timeline & Event Feed</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {isRunning && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-full)',
+              background: 'var(--state-success-bg)',
+              border: '1px solid var(--state-success-border)',
+              fontSize: '0.68rem',
+              fontWeight: '700',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--state-success-text)',
+            }}>
+              <span className="status-dot status-dot-running" style={{ width: '6px', height: '6px' }} />
+              <span>LIVE</span>
+            </div>
+          )}
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            CHRONOLOGICAL AUDIT ({logs.length})
+            CHRONOLOGICAL AUDIT ({displayItems.length})
           </span>
         </div>
       </div>
@@ -67,25 +123,25 @@ export default function ExecutionLog({ logs = [] }) {
           height: '280px',
           maxHeight: '280px',
           overflowY: 'auto',
-          background: '#f8fafc',
+          background: 'var(--bg-surface-secondary)',
           padding: '12px 16px',
           fontFamily: 'var(--font-mono)',
           fontSize: '0.76rem',
           lineHeight: '1.6',
         }}
       >
-        {logs.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '30px' }}>
+        {displayItems.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)', textAlign: 'center', paddingTop: '40px' }}>
             Awaiting mission directive dispatch...
           </div>
         ) : (
-          logs.map((log, idx) => {
-            const meta = getLogMeta(log);
+          displayItems.map((item) => {
+            const meta = getItemMeta(item);
             const Icon = meta.icon;
 
             return (
               <div
-                key={idx}
+                key={item.id}
                 style={{
                   display: 'flex',
                   alignItems: 'baseline',
@@ -93,12 +149,13 @@ export default function ExecutionLog({ logs = [] }) {
                   marginBottom: '6px',
                   padding: '3px 6px',
                   borderRadius: '3px',
-                  background: log.type === 'error' ? 'var(--state-failure-bg)' : 'transparent',
+                  background: item.status === 'failed' ? 'var(--state-failure-bg)' : 'transparent',
+                  animation: 'fade-in 150ms cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
               >
                 {/* Timestamp */}
                 <span style={{ color: 'var(--text-muted)', userSelect: 'none', fontSize: '0.7rem', flexShrink: 0 }}>
-                  [{log.time}]
+                  [{item.time}]
                 </span>
 
                 {/* Tag badge */}
@@ -121,7 +178,7 @@ export default function ExecutionLog({ logs = [] }) {
 
                 {/* Message */}
                 <span style={{ color: 'var(--text-primary)', flex: 1, wordBreak: 'break-word', fontSize: '0.75rem' }}>
-                  {log.message}
+                  {item.message}
                 </span>
               </div>
             );

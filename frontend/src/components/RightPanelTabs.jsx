@@ -6,6 +6,7 @@ import {
   Terminal,
   Download,
   ExternalLink,
+  Eye,
   Copy,
   Check,
   CheckCircle2,
