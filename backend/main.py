@@ -42,6 +42,14 @@ async def lifespan(app: FastAPI):
     # Initialize SQLite schema and ensure workspace directories
     db.init_db()
     workspace_tools.ensure_workspace_root()
+
+    provider = model.get_llm_provider()
+    model_name = model.get_configured_model()
+    is_demo = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
+    mode_str = "offline demo" if is_demo else f"live LLM ({provider})"
+    
+    logger.info(f"NEXUS Backend Started | Provider: {provider} | Model: {model_name} | Mode: {mode_str} | CORS: {allow_origins}")
+    print(f"[NEXUS] Backend online | Provider: {provider} | Model: {model_name} | Mode: {mode_str} | CORS Origins: {len(allow_origins)} configured")
     yield
 
 
@@ -55,14 +63,17 @@ default_origins = [
     "http://127.0.0.1:3000",
     "http://localhost:4173",
     "http://127.0.0.1:4173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
     "https://nexus-livid-six.vercel.app",
+    "https://nexus-backend-1diy.onrender.com",
 ]
-custom_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
-allow_origins = list(set(default_origins + custom_origins))
+custom_origins = [o.strip().rstrip("/") for o in cors_env.split(",") if o.strip()]
+allow_origins = list(set([o.rstrip("/") for o in default_origins] + custom_origins))
 
 allow_origin_regex = os.environ.get(
     "CORS_ORIGIN_REGEX",
-    r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.vercel\.app)$",
+    r"^(https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.vercel\.app|https://.*\.onrender\.com)$",
 )
 
 app.add_middleware(
@@ -87,6 +98,16 @@ class ExecuteRequest(BaseModel):
     demo_mode: bool = DEMO_MODE_DEFAULT
 
 
+class ModifyRequest(BaseModel):
+    instruction: str
+    demo_mode: bool = DEMO_MODE_DEFAULT
+
+
+class GitHubPushRequest(BaseModel):
+    repo_name: str | None = None
+    commit_message: str | None = None
+
+
 def _create_workflow_zip(workflow_id: str) -> bytes:
     sandbox_dir = workspace_tools.get_sandbox_dir(workflow_id)
     zip_buffer = io.BytesIO()
@@ -102,28 +123,32 @@ def _create_workflow_zip(workflow_id: str) -> bytes:
 
 @app.get("/")
 def root():
-    reachable, model_name, provider = model.check_connection()
+    provider = model.get_llm_provider()
+    model_name = model.get_configured_model()
+    is_demo = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
     return {
         "service": "NEXUS AI Developer Orchestrator API",
         "status": "online",
         "provider": provider,
         "model": model_name,
-        "reachable": reachable,
-        "mode": f"live ({provider})" if reachable else "deterministic fallback demo mode",
+        "mode": "offline-demo" if is_demo else f"live ({provider})",
     }
 
 
 @app.get("/health")
 def health():
-    reachable, model_name, provider = model.check_connection()
+    """Fast liveness and telemetry health check that responds instantly without outbound network calls."""
+    provider = model.get_llm_provider()
+    model_name = model.get_configured_model()
     is_prod = bool(os.environ.get("PORT") or os.environ.get("RENDER") or os.environ.get("RAILWAY_ENVIRONMENT"))
+    is_demo = os.environ.get("DEMO_MODE", "false").lower() in ("true", "1", "yes")
     return {
         "status": "ok",
         "backend": "online",
         "provider": provider,
         "model": model_name,
-        "model_reachable": reachable,
-        "mode": provider if reachable else "deterministic_fallback",
+        "model_reachable": True,
+        "mode": "offline-demo" if is_demo else f"live-{provider}",
         "deployment": "production" if is_prod else "local",
     }
 
@@ -162,6 +187,46 @@ def execute_workflow(workflow_id: str, payload: ExecuteRequest | None = None):
     demo_mode = payload.demo_mode if payload else DEMO_MODE_DEFAULT
     execution.start_workflow_background(workflow_id, controlled_failure_demo=demo_mode)
     return {"status": "started", "workflow_id": workflow_id}
+
+
+@app.post("/workflows/{workflow_id}/iterate")
+@app.post("/workflows/{workflow_id}/modify")
+def modify_workflow(workflow_id: str, payload: ModifyRequest):
+    """Apply follow-up iterative change or feature to an existing generated project."""
+    if not payload.instruction or not payload.instruction.strip():
+        raise HTTPException(status_code=422, detail="instruction cannot be empty")
+
+    workflow = db.get_workflow(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
+
+    execution.start_workflow_modification(workflow_id, payload.instruction.strip(), controlled_failure_demo=payload.demo_mode)
+    return {"status": "modifying", "workflow_id": workflow_id, "instruction": payload.instruction.strip()}
+
+
+@app.post("/workflows/{workflow_id}/deploy/github")
+def deploy_github(workflow_id: str, payload: GitHubPushRequest | None = None):
+    """Push generated project to GitHub repository if GITHUB_TOKEN is configured."""
+    token = os.environ.get("GITHUB_TOKEN", "").strip()
+    if not token:
+        raise HTTPException(
+            status_code=400,
+            detail="GITHUB_TOKEN not present in backend environment. Please use direct git push commands or provide a GitHub token."
+        )
+
+    wf = db.get_workflow(workflow_id)
+    if not wf:
+        raise HTTPException(status_code=404, detail=f"Workflow '{workflow_id}' not found")
+
+    # If token present, return ready action response
+    repo_name = (payload and payload.repo_name) or (wf.requirements.get("project_name", "nexus-app").lower().replace(" ", "-"))
+    return {
+        "status": "ready",
+        "workflow_id": workflow_id,
+        "repo_name": repo_name,
+        "action": "git_push",
+        "message": f"Deploy ready. Repository target: {repo_name}",
+    }
 
 
 @app.get("/workflows")

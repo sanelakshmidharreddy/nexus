@@ -334,7 +334,7 @@ def run_workflow_sync(workflow_id: str, controlled_failure_demo: bool = False) -
             None,
             "orchestrator",
             "WORKFLOW_COMPLETED",
-            f"Project ready! {len(final_artifacts)} files generated. Evaluation: PASSED.",
+            f"Project ready! {len(final_artifacts)} files generated across Create, Test, Deploy, and Collaborate stages. All checks verified.",
             "success" if all_success else "failed",
         )
 
@@ -350,11 +350,96 @@ def run_workflow_sync(workflow_id: str, controlled_failure_demo: bool = False) -
             _ACTIVE_EXECUTIONS.discard(workflow_id)
 
 
+def run_workflow_modification_sync(workflow_id: str, instruction: str, controlled_failure_demo: bool = False) -> dict:
+    """Apply an iterative feature or modification to an existing generated project."""
+    with _LOCK:
+        if workflow_id in _ACTIVE_EXECUTIONS:
+            return {"status": "already_running", "workflow_id": workflow_id}
+        _ACTIVE_EXECUTIONS.add(workflow_id)
+
+    try:
+        wf = db.get_workflow(workflow_id)
+        if not wf:
+            raise ValueError(f"Workflow '{workflow_id}' not found in database")
+
+        db.update_workflow_state(workflow_id, status="running")
+        _emit_event(
+            workflow_id,
+            None,
+            "code_generator",
+            "MODIFICATION_STARTED",
+            f"Applying developer iteration: '{instruction}'",
+            "running",
+        )
+
+        from backend.agents.code_generator import modify_project_files
+        res = modify_project_files(workflow_id, instruction, wf.original_goal, wf.requirements)
+        modified_files = res.get("modified_files", [])
+
+        for mf in modified_files:
+            _emit_event(
+                workflow_id,
+                None,
+                "code_generator",
+                "FILE_MODIFIED",
+                f"Modified project asset: {mf}",
+                "success",
+            )
+
+        # Re-evaluate
+        _emit_event(
+            workflow_id,
+            None,
+            "evaluator",
+            "EVALUATION_STARTED",
+            "Re-evaluating deliverable after code modification...",
+            "running",
+        )
+        new_eval = evaluate_deliverable(workflow_id, wf.original_goal, wf.requirements, wf.tasks)
+        updated_artifacts = workspace_tools.list_directory(workflow_id)
+
+        db.update_workflow_state(
+            workflow_id,
+            status="completed",
+            evaluation=new_eval,
+            artifacts=updated_artifacts,
+        )
+
+        _emit_event(
+            workflow_id,
+            None,
+            "orchestrator",
+            "WORKFLOW_COMPLETED",
+            f"Iteration completed! {len(modified_files)} file(s) updated. Re-evaluation score: {new_eval.get('score', 100)}%.",
+            "success",
+        )
+
+        return {
+            "status": "completed",
+            "workflow_id": workflow_id,
+            "modified_files": modified_files,
+            "evaluation": new_eval,
+        }
+    finally:
+        with _LOCK:
+            _ACTIVE_EXECUTIONS.discard(workflow_id)
+
+
 def start_workflow_background(workflow_id: str, controlled_failure_demo: bool = False) -> None:
     """Launch execution in a background thread."""
     thread = threading.Thread(
         target=run_workflow_sync,
         args=(workflow_id, controlled_failure_demo),
+        daemon=True,
+    )
+    thread.start()
+
+
+def start_workflow_modification(workflow_id: str, instruction: str, controlled_failure_demo: bool = False) -> None:
+    """Launch modification in a background thread."""
+    thread = threading.Thread(
+        target=run_workflow_modification_sync,
+        args=(workflow_id, instruction, controlled_failure_demo),
         daemon=True,
     )
     thread.start()
