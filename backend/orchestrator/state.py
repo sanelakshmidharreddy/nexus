@@ -3,10 +3,18 @@
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Literal
-
 VALID_TASK_STATES = ("pending", "running", "success", "failed", "retrying")
-VALID_AGENTS = ("research", "data", "ui", "developer", "qa", "evaluator")
+VALID_AGENTS = (
+    "analyzer",
+    "planner",
+    "code_generator",
+    "evaluator",
+    "developer",
+    "qa",
+    "research",
+    "data",
+    "ui",
+)
 
 REQUIRED_REQUIREMENTS_KEYS = (
     "objective",

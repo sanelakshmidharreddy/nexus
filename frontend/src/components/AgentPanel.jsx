@@ -1,62 +1,56 @@
 import React from 'react';
-import { Users, Search, Database, Layout, Code2, CheckSquare, Award, Check, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Search, Compass, Code2, ShieldCheck, Check, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedAgentId = null }) {
   const agents = [
     {
-      id: 'research',
-      name: 'Research Agent',
-      role: 'Domain Scoping & Requirements Synthesis',
+      id: 'analyzer',
+      name: 'Analyzer Agent',
+      role: 'Requirement Analysis & Feature Scoping',
+      description: 'Understands developer prompt, extracts functional features, constraints, and target technology stack.',
       icon: Search,
+      aliases: ['analyzer', 'research'],
     },
     {
-      id: 'data',
-      name: 'Data Agent',
-      role: 'Dataset Ingestion, Metrics & Hotspot Mining',
-      icon: Database,
+      id: 'planner',
+      name: 'Planner Agent',
+      role: 'System Architecture & API Planning',
+      description: 'Converts requirements into an execution plan with decoupled client-server architecture, database schemas, and REST routes.',
+      icon: Compass,
+      aliases: ['planner', 'data', 'ui'],
     },
     {
-      id: 'ui',
-      name: 'UI Agent',
-      role: 'Component Topology & Visualization Layout',
-      icon: Layout,
-    },
-    {
-      id: 'developer',
-      name: 'Developer Agent',
-      role: 'Code Generation, Pipeline Wiring & Patching',
+      id: 'code_generator',
+      name: 'Code Generator Agent',
+      role: 'Full-Stack Source Code Generation',
+      description: 'Generates frontend components, FastAPI backend routes, Pydantic schemas, SQLite models, and web preview.',
       icon: Code2,
-    },
-    {
-      id: 'qa',
-      name: 'QA Agent',
-      role: 'Build Verification & Schema Diagnostics',
-      icon: CheckSquare,
+      aliases: ['code_generator', 'developer'],
     },
     {
       id: 'evaluator',
       name: 'Evaluator Agent',
-      role: 'Goal Verification & 9-Point Quality Audit',
-      icon: Award,
+      role: 'Automated Integrity & Contract Audit',
+      description: 'Validates file existence, non-empty content, dependency manifests, API contract consistency, and sandbox security.',
+      icon: ShieldCheck,
+      aliases: ['evaluator', 'qa'],
     },
   ];
 
-  const getAgentState = (agentId) => {
-    const agentTasks = tasks.filter(t => t.assigned_agent === agentId);
+  const getAgentState = (agentDef) => {
+    const agentTasks = tasks.filter(t => agentDef.aliases.includes(t.assigned_agent?.toLowerCase()));
     const totalCount = agentTasks.length;
     const completedCount = agentTasks.filter(t => t.status === 'success').length;
 
     if (totalCount === 0) {
       return {
-        status: 'STANDBY',
+        status: 'WAITING',
+        statusLabel: 'Waiting',
+        iconState: 'waiting',
         badgeClass: 'badge-pending',
-        activeTask: null,
-        lastActivity: 'Awaiting task assignment',
+        subtitle: '○ Waiting for previous stage...',
         totalCount: 0,
         completedCount: 0,
-        isRunning: false,
-        isFailed: false,
-        isRetrying: false,
       };
     }
 
@@ -64,29 +58,12 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
       const runningTask = agentTasks.find(t => t.status === 'running');
       return {
         status: 'RUNNING',
+        statusLabel: 'Running',
+        iconState: 'running',
         badgeClass: 'badge-running',
-        activeTask: runningTask.task_id,
-        lastActivity: runningTask.title,
+        subtitle: `⟳ ${runningTask.title || 'Executing step...'}`,
         totalCount,
         completedCount,
-        isRunning: true,
-        isFailed: false,
-        isRetrying: false,
-      };
-    }
-
-    if (agentTasks.some(t => t.status === 'retrying')) {
-      const retryTask = agentTasks.find(t => t.status === 'retrying');
-      return {
-        status: 'RETRYING',
-        badgeClass: 'badge-retrying',
-        activeTask: retryTask.task_id,
-        lastActivity: `Applying Patch: ${retryTask.title}`,
-        totalCount,
-        completedCount,
-        isRunning: false,
-        isFailed: false,
-        isRetrying: true,
       };
     }
 
@@ -94,210 +71,146 @@ export default function AgentPanel({ tasks = [], onSelectAgent = null, selectedA
       const failTask = agentTasks.find(t => t.status === 'failed');
       return {
         status: 'FAILED',
+        statusLabel: 'Failed',
+        iconState: 'failed',
         badgeClass: 'badge-failed',
-        activeTask: failTask.task_id,
-        lastActivity: `Defect Detected: ${failTask.title}`,
+        subtitle: `✕ Defect: ${failTask.error || failTask.title}`,
         totalCount,
         completedCount,
-        isRunning: false,
-        isFailed: true,
-        isRetrying: false,
       };
     }
 
-    if (agentTasks.every(t => t.status === 'success')) {
+    if (completedCount === totalCount && totalCount > 0) {
+      const lastTask = agentTasks[agentTasks.length - 1];
       return {
-        status: 'SUCCESS',
+        status: 'COMPLETED',
+        statusLabel: 'Completed',
+        iconState: 'completed',
         badgeClass: 'badge-success',
-        activeTask: null,
-        lastActivity: 'All assigned tasks completed',
+        subtitle: `✓ ${lastTask.output ? lastTask.output.slice(0, 75) + '...' : 'Task execution verified'}`,
         totalCount,
         completedCount,
-        isRunning: false,
-        isFailed: false,
-        isRetrying: false,
       };
     }
 
     return {
-      status: 'PLANNED',
+      status: 'WAITING',
+      statusLabel: 'Waiting',
+      iconState: 'waiting',
       badgeClass: 'badge-pending',
-      activeTask: agentTasks[0]?.task_id || null,
-      lastActivity: `Queued: ${agentTasks[0]?.title || 'Pending execution'}`,
+      subtitle: '○ Waiting to start',
       totalCount,
       completedCount,
-      isRunning: false,
-      isFailed: false,
-      isRetrying: false,
     };
   };
 
   return (
-    <div className="panel" style={{ background: '#ffffff' }}>
-      <div className="panel-header">
-        <div className="panel-title">
-          <Users size={15} style={{ color: 'var(--text-muted)' }} />
-          <span>Specialist Multi-Agent Swarm</span>
+    <div className="panel" style={{ background: '#ffffff', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)' }}>
+      <div className="panel-header" style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.88rem' }}>
+          <span>MULTI-AGENT DEVELOPMENT PIPELINE</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            AUTONOMOUS ROLES (6 SPECIALISTS)
-          </span>
-        </div>
+        <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+          4 SPECIALIZED AUTONOMOUS AGENTS
+        </span>
       </div>
 
-      <div className="panel-body">
+      <div className="panel-body" style={{ padding: '16px' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '12px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: '14px',
         }}>
-          {agents.map((agent) => {
-            const Icon = agent.icon;
-            const state = getAgentState(agent.id);
+          {agents.map((agentDef, index) => {
+            const state = getAgentState(agentDef);
+            const Icon = agentDef.icon;
+            const isSelected = selectedAgentId === agentDef.id;
 
-            const isSelected = selectedAgentId === agent.id;
-            let cardClass = "interactive-agent-card";
-            if (state.isRunning) cardClass += " agent-card-active";
-            else if (state.isRetrying) cardClass += " agent-card-recovering";
-            else if (state.isFailed) cardClass += " agent-card-failed";
+            let cardBorder = 'var(--border-subtle)';
+            let cardBg = '#ffffff';
+            let iconColor = 'var(--text-muted)';
+            let indicator = null;
+
+            if (state.status === 'COMPLETED') {
+              cardBorder = 'var(--state-success-border)';
+              cardBg = 'var(--state-success-bg)';
+              iconColor = 'var(--state-success)';
+              indicator = <span style={{ color: 'var(--state-success)', fontWeight: '800' }}>✓</span>;
+            } else if (state.status === 'RUNNING') {
+              cardBorder = 'var(--state-running-border)';
+              cardBg = 'var(--state-running-bg)';
+              iconColor = 'var(--state-running)';
+              indicator = <RefreshCw size={13} className="spin" style={{ color: 'var(--state-running)' }} />;
+            } else if (state.status === 'FAILED') {
+              cardBorder = 'var(--state-failure-border)';
+              cardBg = 'var(--state-failure-bg)';
+              iconColor = 'var(--state-failure)';
+              indicator = <AlertTriangle size={13} style={{ color: 'var(--state-failure)' }} />;
+            } else {
+              indicator = <span style={{ color: 'var(--text-faint)', fontSize: '0.8rem' }}>○</span>;
+            }
 
             return (
               <div
-                key={agent.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`Inspect ${agent.name} - Status: ${state.status} - ${state.lastActivity}`}
-                className={cardClass}
-                onClick={() => onSelectAgent && onSelectAgent(agent.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    if (onSelectAgent) onSelectAgent(agent.id);
-                  }
-                }}
+                key={agentDef.id}
+                onClick={() => onSelectAgent && onSelectAgent(agentDef.id)}
                 style={{
-                  background: isSelected ? 'var(--bg-surface-secondary)' : '#ffffff',
-                  border: `1px solid ${isSelected ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                  padding: '16px',
                   borderRadius: 'var(--radius-sm)',
-                  padding: '14px',
+                  border: `1px solid ${cardBorder}`,
+                  background: cardBg,
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: 'space-between',
                   gap: '10px',
-                  boxShadow: isSelected ? 'var(--shadow-md)' : 'var(--shadow-xs)',
-                  cursor: 'pointer',
-                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease',
+                  cursor: onSelectAgent ? 'pointer' : 'default',
+                  transition: 'all 180ms ease',
                   position: 'relative',
-                  outline: 'none',
+                  boxShadow: state.status === 'RUNNING' ? '0 0 0 2px rgba(37,99,235,0.1)' : 'none',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-3px)';
-                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                  e.currentTarget.style.borderColor = isSelected ? 'var(--text-primary)' : 'var(--border-focus)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = isSelected ? 'var(--shadow-md)' : 'var(--shadow-xs)';
-                  e.currentTarget.style.borderColor = isSelected ? 'var(--text-primary)' : 'var(--border-subtle)';
-                }}
-                title={`Click to open ${agent.name} Workstation`}
               >
-                {/* Top Row: Icon + Name & Status Badge */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: 'var(--radius-xs)',
-                      background: state.isRunning ? '#eff6ff' : 'var(--bg-surface-secondary)',
-                      border: `1px solid ${state.isRunning ? '#bfdbfe' : 'var(--border-subtle)'}`,
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      background: '#ffffff',
+                      border: '1px solid var(--border-subtle)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: state.isRunning ? '#2563eb' : 'var(--text-primary)',
-                      flexShrink: 0,
+                      color: iconColor,
                     }}>
-                      <Icon size={16} />
+                      <Icon size={15} />
                     </div>
-
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '0.86rem', fontWeight: '700', color: 'var(--text-primary)' }}>
-                          {agent.name}
-                        </span>
-                        {isSelected && (
-                          <span style={{
-                            fontSize: '0.62rem',
-                            fontFamily: 'var(--font-mono)',
-                            fontWeight: '800',
-                            color: 'var(--text-primary)',
-                            background: '#ffffff',
-                            border: '1px solid var(--text-primary)',
-                            padding: '0 4px',
-                            borderRadius: '2px',
-                            letterSpacing: '0.04em',
-                          }}>
-                            [SELECTED]
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-                        {agent.role}
+                      <div style={{ fontSize: '0.86rem', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>{agentDef.name}</span>
                       </div>
                     </div>
                   </div>
 
-                  <span className={`badge ${state.badgeClass}`}>
-                    {state.isRunning && <span className="status-dot status-dot-running" />}
-                    {state.status}
+                  <span className={`badge ${state.badgeClass}`} style={{ fontSize: '0.68rem', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {indicator}
+                    <span>{state.status}</span>
                   </span>
                 </div>
 
-                {/* Details Row: Progress & Active Task */}
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                  {agentDef.role}
+                </div>
+
                 <div style={{
                   paddingTop: '8px',
-                  borderTop: '1px solid var(--border-subtle)',
-                  fontSize: '0.73rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px',
+                  borderTop: '1px dashed var(--border-subtle)',
+                  fontSize: '0.72rem',
+                  fontFamily: 'var(--font-mono)',
+                  color: state.status === 'RUNNING' ? 'var(--state-running-text)' : state.status === 'COMPLETED' ? 'var(--state-success-text)' : 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Tasks Progress:</span>
-                    <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                      {state.totalCount > 0 ? `${state.completedCount} / ${state.totalCount} tasks` : '0 tasks'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Current Activity:</span>
-                    <span style={{
-                      color: state.isRunning ? '#2563eb' : state.isRetrying ? '#d97706' : 'var(--text-secondary)',
-                      fontWeight: state.isRunning || state.isRetrying ? '700' : '500',
-                      textAlign: 'right',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      maxWidth: '180px',
-                    }}>
-                      {state.lastActivity}
-                    </span>
-                  </div>
-
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-end',
-                    gap: '4px',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.67rem',
-                    fontFamily: 'var(--font-mono)',
-                    marginTop: '2px',
-                  }}>
-                    <span>Inspect Agent</span>
-                    <span>→</span>
-                  </div>
+                  {state.subtitle}
                 </div>
               </div>
             );

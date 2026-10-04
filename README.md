@@ -1,166 +1,124 @@
-# NEXUS — Autonomous AI Agent Orchestration Platform
+# NEXUS — AI Developer Orchestrator
 
-NEXUS turns a natural-language goal into a dependency-aware plan, assigns each task to the right specialist agent, executes and monitors that plan, recovers from failures by re-diagnosing and retrying, and verifies the final result against original requirements.
+> **Hackathon Track: Developer Tools**  
+> *"Build tools that help developers create, test, deploy, or collaborate faster using AI."*
 
----
-
-## Deployment Architecture
-
-```
-JUDGE / USER
-     │
-     ▼
-Vercel React/Vite Frontend (https://nexus-livid-six.vercel.app)
-     │  HTTPS
-     ▼
-Render FastAPI Backend (uvicorn backend.main:app)
-     │
-     ▼
-NEXUS Orchestrator Core (topological DAG, SQLite persistence)
-     │
-     ▼
-Specialist Agents (Research, Data, UI, Developer, QA, Evaluator)
-     │
-     ▼
-Deterministic Fallback Engine (when local Ollama is offline)
-```
+NEXUS is an autonomous multi-agent developer command center. It takes high-level developer requirements, orchestrates specialized AI agents through structured analysis, architecture planning, full-stack code generation, and automated project verification, and delivers a downloadable, production-ready project ZIP.
 
 ---
 
-## 1. Local Development
+## The Multi-Agent Pipeline
 
-### Backend Setup
+```text
+               Developer Requirement
+                         │
+                         ▼
+                  ANALYZER AGENT
+      (Feature Extraction, Tech Stack, Constraints)
+                         │
+                         ▼
+              PLANNER / ARCHITECT AGENT
+         (System Architecture & API Schemas)
+                         │
+                         ▼
+               CODE GENERATOR AGENT
+ (Full-Stack Generation: Frontend, FastAPI, DB Models, Configs)
+                         │
+                         ▼
+                  EVALUATOR AGENT
+   (7-Point Integrity Audit & Contract Verification)
+                         │
+                         ▼
+                   FINAL PROJECT
+               (Live Web Preview)
+                         │
+                         ▼
+                   ZIP DOWNLOAD
+               (/workflows/{id}/zip)
+```
 
-Create and activate a virtual environment, then install dependencies:
+### Specialized Agent Roles
+1. **Analyzer Agent**: Interprets natural language requirements into formal specifications, scoping features, constraints, and target technology stack.
+2. **Planner / Architect Agent**: Constructs execution plans, decoupled client-server architecture, database schemas, and RESTful API endpoints.
+3. **Code Generator Agent**: Generates real source files in the sandboxed workspace (`backend/main.py`, `backend/models.py`, `backend/database.py`, `frontend/src/App.jsx`, `frontend/package.json`, `README.md`, and `index.html`).
+4. **Evaluator Agent**: Performs automated verification across 7 developer criteria (file structure, non-empty files, dependencies, API contracts, README, and sandbox isolation). Triggers autonomous self-healing regeneration if any defect is detected.
 
+---
+
+## Technology Stack
+
+- **Backend**: FastAPI (Python 3.11+), SQLite persistence, Pydantic data schemas, Uvicorn server.
+- **Frontend**: React 18, Vite, Lucide icons, responsive CSS design system.
+- **AI / LLM Providers**:
+  - **Google Gemini** (`gemini-3.8-flash` via `google.genai` SDK or REST API)
+  - **Anthropic Claude** (via REST API)
+  - **Local Ollama** (`qwen2.5:7b-instruct` / local LLMs)
+  - **Offline Demo Mode** (clearly labelled deterministic fallback for zero-connectivity judging)
+
+---
+
+## Quick Start (Local Development)
+
+### 1. Backend Setup
 ```bash
+# In the repository root
 python -m venv .venv
 # On Windows:
 .venv\Scripts\activate
-# On Linux / macOS:
+# On Linux/macOS:
 source .venv/bin/activate
 
 pip install -r backend/requirements.txt
 ```
 
-Start the FastAPI application:
+Create `backend/.env` (see `backend/.env.example`):
+```bash
+cp backend/.env.example backend/.env
+```
+Configure your keys:
+```env
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_key_here
+PORT=8000
+```
 
+Start the FastAPI backend:
 ```bash
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
 - **Backend API**: `http://localhost:8000`
-- **Health Check**: `http://localhost:8000/health`
-- **FastAPI Documentation**: `http://localhost:8000/docs`
+- **Swagger Documentation**: `http://localhost:8000/docs`
+- **Health Telemetry**: `http://localhost:8000/health`
 
-### Frontend Setup
-
-In a separate terminal:
-
+### 2. Frontend Setup
+In a second terminal:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-
-- **Frontend Command Center UI**: `http://localhost:5173`
-
-*(The frontend automatically defaults to `http://localhost:8000` in local development).*
-
-### Optional: Local Ollama Setup
-
-If you wish to use a local LLM rather than the built-in deterministic benchmark engine:
-
-```bash
-ollama serve
-ollama pull qwen2.5:7b-instruct
-```
-
-Environment variables (optional overrides):
-- `OLLAMA_MODEL`: Target model (default: `qwen2.5:7b-instruct`)
-- `OLLAMA_HOST`: Target Ollama host URL (default: `http://localhost:11434`)
-- `DEMO_MODE`: Enable deterministic fallback benchmark mode (`true` by default)
-- `NEXUS_DB_PATH`: SQLite database path (default: `backend/nexus.db`)
+- **Command Center Dashboard**: `http://localhost:5173`
 
 ---
 
-## 2. Production Deployment
+## API Endpoints
 
-### Backend: Render
-
-1. Create a new **Web Service** on Render connected to this repository.
-2. Configure the service settings:
-   - **Root Directory**: *(Leave blank / repository root)*
-   - **Environment**: `Python 3`
-   - **Build Command**: `pip install -r backend/requirements.txt`
-   - **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-   - **Health Check Path**: `/health`
-3. Add Environment Variables:
-   - `DEMO_MODE`: `true`
-   - `PYTHON_VERSION`: `3.11.9`
-4. Deploy the service. Once deployed, note your public Render URL (e.g., `https://nexus-orchestrator-backend.onrender.com`).
-
-*(Note: The included `render.yaml` at the repository root pre-configures these settings automatically).*
-
-### Frontend: Vercel
-
-1. In the Vercel dashboard, open your project (`nexus-livid-six` or new project).
-2. Navigate to **Settings** -> **Environment Variables**.
-3. Add the following variable:
-   - **Key**: `VITE_API_URL`
-   - **Value**: `<Your Render Backend URL>` (e.g. `https://<your-service>.onrender.com`)
-4. Trigger a **Redeployment** on Vercel so the frontend builds with the production backend endpoint.
-
-*(Production builds never default to localhost. If the backend is waking from a cold-start, the frontend displays a real-time waking/retry indicator rather than an error).*
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Server health, active LLM provider, and model telemetry |
+| `POST` | `/goals` | Accept developer requirement, plan tasks, trigger background execution |
+| `GET` | `/workflows` | List recent workflows (run history) |
+| `GET` | `/workflows/{id}` | Full live workflow state (tasks, requirements, evaluation) |
+| `GET` | `/workflows/{id}/events` | Chronological execution events timeline |
+| `GET` | `/workflows/{id}/artifacts` | List of generated project files |
+| `GET` | `/workflows/{id}/artifact/{path}` | View or download a specific generated file |
+| `GET` | `/workflows/{id}/preview` | Live interactive web preview of generated deliverable |
+| `GET` | `/workflows/{id}/zip` | **Download generated project as a `.zip` archive** |
+| `GET` | `/api/generate-zip` | Backward-compatible ZIP download endpoint |
 
 ---
 
-## 3. API & Verification Endpoints
+## Security & Isolation
 
-### Health Check
-
-```bash
-curl http://localhost:8000/health
-```
-
-Expected response:
-```json
-{
-  "status": "ok",
-  "backend": "online",
-  "model": "qwen2.5:7b-instruct",
-  "model_reachable": true,
-  "mode": "ollama",
-  "demo_mode": true,
-  "deployment": "local"
-}
-```
-
-### Submit a Goal
-
-```bash
-curl -X POST http://localhost:8000/goals \
-  -H "Content-Type: application/json" \
-  -d '{"goal": "Build a RoadSafe-style accident analytics dashboard from this dataset.", "auto_execute": true, "demo_mode": true}'
-```
-
-### Inspect Workflow and Tasks
-
-```bash
-curl http://localhost:8000/workflows/<workflow_id>
-curl http://localhost:8000/workflows/<workflow_id>/tasks/T1
-curl http://localhost:8000/workflows/<workflow_id>/events
-curl http://localhost:8000/workflows/<workflow_id>/artifacts
-curl http://localhost:8000/workflows/<workflow_id>/dashboard
-```
-
----
-
-## 4. Architecture
-
-- `backend/orchestrator/`: Core planning, DAG validation, execution coordinator, and SQLite persistence.
-- `backend/agents/`: Specialist agents (Research, Data, UI, Developer, QA, Evaluator).
-- `backend/tools/`: Sandboxed tool execution restricted to `workspace/generated_projects/`.
-- `backend/evaluator/`: 9-point criteria verification engine for generated deliverables.
-- `backend/memory/`: Cross-task context and audit history.
-- `frontend/`: React + Vite Command Center with topological graph visualizer, real-time event logs, and RoadSafe deliverable preview.
+- **Sandboxed Workspace**: All file operations and code generation are confined to `workspace/generated_projects/<workflow_id>/`. Path traversal escapes (`../`) are strictly blocked.
+- **Zero Secrets in Frontend**: API keys and model tokens are stored securely on the backend (`backend/.env`) and never exposed in `VITE_` variables or git.
