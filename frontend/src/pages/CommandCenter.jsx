@@ -250,6 +250,53 @@ export default function CommandCenter() {
   );
   const isRepairing = repairEvents.length > 0 && isExecuting;
 
+  // Compute execution metrics
+  const getExecutionTime = () => {
+    if (!activeWorkflow?.created_at || !activeWorkflow?.updated_at) return 'N/A';
+    const start = new Date(activeWorkflow.created_at).getTime();
+    const end = new Date(activeWorkflow.updated_at).getTime();
+    const seconds = Math.round((end - start) / 1000);
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const getStageStatus = (stageName) => {
+    const stageMap = {
+      CREATE: ['T1', 'T2', 'T3', 'T4', 'T5'],
+      TEST: ['T6'],
+      DEPLOY: ['T7'],
+      COLLABORATE: ['T8'],
+    };
+    const stageTasks = tasks.filter(t => stageMap[stageName]?.includes(t.task_id));
+    if (stageTasks.length === 0) return 'WAITING';
+    if (stageTasks.some(t => t.status === 'failed')) return 'FAILED';
+    if (stageTasks.some(t => t.status === 'running')) return 'RUNNING';
+    if (stageTasks.every(t => t.status === 'success')) return 'SUCCESS';
+    return 'WAITING';
+  };
+
+  const getTestCount = () => {
+    if (!evaluation?.checks) return 'N/A';
+    return `${evaluation.passed_checks || 0} passed`;
+  };
+
+  const getDeployStatus = () => {
+    const status = getStageStatus('DEPLOY');
+    if (status === 'SUCCESS') return 'READY';
+    if (status === 'FAILED') return 'FAILED';
+    if (status === 'RUNNING') return 'PREPARING';
+    return 'WAITING';
+  };
+
+  const getCollaborateStatus = () => {
+    const status = getStageStatus('COLLABORATE');
+    if (status === 'SUCCESS') return 'READY';
+    if (status === 'FAILED') return 'FAILED';
+    if (status === 'RUNNING') return 'PREPARING';
+    return 'WAITING';
+  };
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
       {/* 1. Header */}
@@ -310,7 +357,7 @@ export default function CommandCenter() {
               workflowStatus={activeWorkflow?.status}
             />
 
-            {/* 3. Agent Pipeline (4 Major Agent Cards: Analyzer, Planner, Code Generator, Evaluator) */}
+            {/* 3. Agent Pipeline (CREATE → TEST → DEPLOY → COLLABORATE) */}
             <AgentPanel
               tasks={tasks}
               requirements={requirements}
@@ -318,6 +365,54 @@ export default function CommandCenter() {
               evaluation={evaluation}
               events={events}
             />
+
+            {/* Execution Details Panel */}
+            {activeWorkflow && (
+              <div className="panel" style={{ background: '#ffffff', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)' }}>
+                <div className="panel-header" style={{ padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '0.88rem' }}>
+                    <span>EXECUTION DETAILS</span>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    WORKFLOW {activeWorkflow.workflow_id.slice(0, 8)}
+                  </span>
+                </div>
+                <div className="panel-body" style={{ padding: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                    <div style={{ padding: '10px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>STATUS</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: isVerified ? 'var(--state-success-text)' : isExecuting ? 'var(--state-running-text)' : 'var(--text-primary)', marginTop: '2px' }}>
+                        {isVerified ? 'PROJECT READY' : isExecuting ? 'EXECUTING' : activeWorkflow.status.toUpperCase()}
+                      </div>
+                    </div>
+                    <div style={{ padding: '10px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>AGENTS</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>4 SPECIALISTS</div>
+                    </div>
+                    <div style={{ padding: '10px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>EXECUTION TIME</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>{getExecutionTime()}</div>
+                    </div>
+                    <div style={{ padding: '10px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>FILES GENERATED</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>{artifacts.length || 'N/A'}</div>
+                    </div>
+                    <div style={{ padding: '10px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>TESTS</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: evaluation?.passed ? 'var(--state-success-text)' : 'var(--text-primary)', marginTop: '2px' }}>{getTestCount()}</div>
+                    </div>
+                    <div style={{ padding: '10px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>DEPLOYMENT</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: getDeployStatus() === 'READY' ? 'var(--state-success-text)' : 'var(--text-primary)', marginTop: '2px' }}>{getDeployStatus()}</div>
+                    </div>
+                    <div style={{ padding: '10px', background: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontWeight: 700 }}>COLLABORATION</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: getCollaborateStatus() === 'READY' ? 'var(--state-success-text)' : 'var(--text-primary)', marginTop: '2px' }}>{getCollaborateStatus()}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Repair / Regeneration Status */}
             {isRepairing && (
