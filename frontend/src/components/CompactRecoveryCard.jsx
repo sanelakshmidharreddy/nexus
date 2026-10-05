@@ -111,6 +111,7 @@ export default function CompactRecoveryCard({ events = [], onViewRecoveryDetails
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button
                 type="button"
+                id="view-recovery-center-btn"
                 onClick={onViewRecoveryDetails}
                 className="btn-primary"
                 style={{
@@ -120,6 +121,7 @@ export default function CompactRecoveryCard({ events = [], onViewRecoveryDetails
                   alignItems: 'center',
                   gap: '8px',
                   whiteSpace: 'nowrap',
+                  cursor: 'pointer',
                 }}
               >
                 <span>VIEW RECOVERY CENTER</span>

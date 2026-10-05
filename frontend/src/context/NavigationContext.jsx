@@ -201,8 +201,24 @@ export function NavigationProvider({ children }) {
 
 export function useNavigation() {
   const context = useContext(NavigationContext);
-  if (!context) {
-    throw new Error('useNavigation must be used within a NavigationProvider');
-  }
-  return context;
+  return (
+    context || {
+      currentTab: 'overview',
+      currentAgentId: 'research',
+      currentWorkflowId: null,
+      drawerAgentId: null,
+      setDrawerAgentId: () => {},
+      historyStack: [{ tab: 'overview' }],
+      previousState: null,
+      canGoBack: false,
+      navigateTo: () => {},
+      goBack: () => {
+        if (typeof window !== 'undefined' && window.history.length > 1) {
+          window.history.back();
+        }
+      },
+      getViewTitle: () => 'Overview',
+      setCurrentWorkflowId: () => {},
+    }
+  );
 }

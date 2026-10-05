@@ -874,7 +874,12 @@ export default function Workspace({ onBackToLanding }) {
               {/* Adaptive Orchestration & Self-Healing Panel */}
               <CompactRecoveryCard
                 events={events}
-                onViewRecoveryDetails={() => setActiveTab('recovery')}
+                onViewRecoveryDetails={() => {
+                  setActiveTab('recovery');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  const mainEl = document.querySelector('main');
+                  if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
 
               {/* Real Execution Timeline & Event Feed */}
@@ -1077,6 +1082,12 @@ export default function Workspace({ onBackToLanding }) {
               workflow={activeWorkflow}
               events={events}
               tasks={tasks}
+              onBack={() => {
+                setActiveTab('overview');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                const mainEl = document.querySelector('main');
+                if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           </div>
         )}
