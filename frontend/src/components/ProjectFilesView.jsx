@@ -31,8 +31,10 @@ export default function ProjectFilesView({ artifacts = [], workflowId }) {
       if (res.ok) {
         const text = await res.text();
         setFileContent(text);
+      } else if (res.status === 404) {
+        setFileContent(`// This file has not been generated yet.\n// Run or complete a workflow to produce this artifact.`);
       } else {
-        setFileContent(`// Error loading file: HTTP ${res.status}`);
+        setFileContent(`// Unable to load file (HTTP ${res.status}). The workflow may still be running.`);
       }
     } catch (err) {
       setFileContent(`// Failed to fetch file from backend: ${err.message}`);
